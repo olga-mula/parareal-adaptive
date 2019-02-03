@@ -7,56 +7,70 @@ from scipy.integrate import solve_ivp
 
 from ode import VDP, Brusselator, Oregonator
 
-class Parareal_Solution():
+class Propagator():
 
-	def __init__(self, ode, u0, t_span, u_span = None, integrator='BDF', tol=1.e-10):
+	def __init__(self, ode, u0, t_interval, integrator='BDF', tol=1.e-10):
 		self.ode = ode
 		self.u0 = u0
+		self.dim = u0.shape[0]
+		[self.ti, self.tf] = t_interval
+		self.integrator = integrator
+		self.tol = tol
+		self.ivp = solve_ivp(ode.f, [self.ti, self.tf], u0, jac = ode.jac, method = integrator, atol=tol, rtol=tol, dense_output=True)
+
+	def eval(self, t):
+		return self.ivp.sol(t) 
+
+	def plot(self, color='black'):
+		if self.dim ==2:
+			t_vec = self.ivp.t
+			u_vec = self.eval(t_vec)
+			plt.plot(u_vec[0,:], u_vec[1,:], color=color)
+		else:
+			raise ValueError('Dimension of problem is '+str(self.dim)+'. Not supported for visualization.')
+
+class Piecewise_Propagator():
+
+	def __init__(self, ode, u0, t_span, u_span, integrator='BDF', tol=1.e-10):
+		self.ode = ode
+		self.u0 = u0
+		self.dim = u0.shape[0]
+		self.integrator = integrator
 		self.tol = tol
 
 		self.t_span = t_span
-		self.interval_span = [[ti, tf] for (ti,tf) in zip(t_span[:-1], t_span[1:])]
+		self.interval_span = [[ti, tf] for (ti,tf) in zip(t_span[:-1], t_span[1:])]		
+		self.u_span = np.asarray(u_span) # Column j has solution at time t_j
+		self.propagator_span = list()
 
-		self.ivp_span = list()
-
-		if u_span is None:
-			ti = t_span[0]
-			tf = t_span[-1]
-			ivp = solve_ivp(ode.f, [ti, tf], u0, jac = ode.jac, method = integrator, atol=tol, rtol=tol, dense_output=True)
-			for i, t_interval in enumerate(self.interval_span): 
-				self.ivp_span.append(ivp)
-			self.u_span = ivp.sol(self.t_span).T
-		else:
-			self.u_span = np.asarray(u_span)
-			for i, t_interval in enumerate(self.interval_span):
-				u_init = u_span[i,:]
-				self.ivp_span.append(solve_ivp(ode.f, t_interval, u_init, jac = ode.jac, method = integrator, atol=tol, rtol=tol, dense_output=True))
+		for i, t_interval in enumerate(self.interval_span):
+			u_init = u_span[:,i]
+			self.propagator_span.append(Propagator(ode, u_init, t_interval, integrator=integrator, tol=tol))
 
 	def eval(self, t):
 		if isinstance(t, float):
 			if t == self.t_span[-1]:
-				return self.ivp_span[-1].sol(t)
+				return self.propagator_span[-1].eval(t)
 			else:
 				idx_test = [int(t>=ti and t<tf) for (ti,tf) in self.interval_span]
 				idx = np.argmax(idx_test)
-				return self.ivp_span[idx].sol(t)
+				return self.propagator_span[idx].eval(t)
 		else:
-			return np.array([self.eval(ti) for ti in t.tolist()])
+			return np.array([self.eval(ti) for ti in t.tolist()]).T
 
 	def plot(self):
 		color_list = cm.tab20c(np.linspace(0, 1, len(self.t_span-1)))
-		for i, ivp in enumerate(self.ivp_span):
-			t_vec = ivp.t
-			u_vec = self.eval(t_vec).T
+		for i, prop in enumerate(self.propagator_span):
+			t_vec = prop.ivp.t
+			u_vec = self.eval(t_vec)
 			plt.plot(u_vec[0,:], u_vec[1,:], color=color_list[i])
-
 
 class Parareal_Algorithm():
 	def __init__(self, ode, u0, t_interval, N, integrator_g='RK23', tol_g = 1.e-2, integrator_f='BDF', tol_f=1.e-2):
 		self.ode   = ode
 		self.u0    = u0
 		[self.ti, self.tf] = t_interval
-		self.N = N
+		self.N = N # Number of processors
 
 		self.integrator_g = integrator_g
 		self.tol_g = tol_g
@@ -64,64 +78,62 @@ class Parareal_Algorithm():
 		self.integrator_f = integrator_f
 		self.tol_f = tol_f
 
-		t_span = np.linspace(self.ti, self.tf, num=self.N+1, endpoint=True)
-		self.exact = Parareal_Solution(self.ode, self.u0, t_span, u_span=None, integrator=self.integrator_f, tol=1.e-12)
+		self.exact = Propagator(self.ode, self.u0, t_interval, integrator=self.integrator_f, tol=1.e-12)
 
 	def run(self, eps=1.e-6, kmax=12):
 
-		g_span = list()
-		f_span = list()
-		p_span = list()
-		t_span_l = list()
+		# List of coarse, fine, parareal prop for each parareal iter k.
+		# List of t_span
+		gl = list()
+		fl = list()
+		pl = list()
+		tl = list()
 
 		for k in range(kmax):
-			print('Iteration k='+str(k))
-			if k == 0:
-				t_span = np.linspace(self.ti, self.tf, num=self.N+1, endpoint=True)
-				g0 = Parareal_Solution(self.ode, self.u0, t_span, u_span=None, integrator=self.integrator_g, tol=self.tol_g)
 
-				t_span_l.append(t_span)
-				g_span.append(g0)
-				p_span.append(g0)
+			print('Iteration k='+str(k))
+			
+			if k == 0:
+				# Sequential propagation of coarse solver
+				g0 = Propagator(self.ode, self.u0, [self.ti, self.tf], integrator=self.integrator_g, tol=self.tol_g)
+				gl.append(g0)
+				pl.append(g0)
+
+				# First guess for macro-intervals
+				t_span = np.linspace(self.ti, self.tf, num=self.N+1, endpoint=True)
+				tl.append(t_span)
+				
 			else:
 				# Fine propagator (k-1)
-				self.tol_f = 10**(-k-1)
-				fkprev = Parareal_Solution(self.ode, self.u0, t_span_l[-1], u_span=p_span[-1].eval(t_span_l[-1]), integrator=self.integrator_f, tol=self.tol_f)
-				f_span.append(fkprev)
+				self.tol_f = 10**(-k-1) # TODO: Change this
+				fkprev = Piecewise_Propagator(self.ode, self.u0, tl[-1], pl[-1].eval(tl[-1]), integrator=self.integrator_f, tol=self.tol_f)
+				fl.append(fkprev)
 
 				# Update t_span with last fine propagation
-				t_span = self.balance_tasks(f_span[-1])
-				t_span_l.append(t_span)
-
-				# Coarse propagator (k). Uses updates t_span
-				gk = Parareal_Solution(self.ode, self.u0, t_span_l[-1], \
-					u_span=p_span[-1].eval(t_span_l[-1]), integrator=self.integrator_g, tol=self.tol_g)
-				g_span.append(gk)
+				t_span = self.balance_tasks(fl[-1])
+				tl.append(t_span)
 
 				# Parareal solution
-				pk_u_span = g_span[-1].eval(t_span_l[-1]) + fkprev.eval(t_span_l[-1]) - g_span[-2].eval(t_span_l[-1])
-				pk = Parareal_Solution(self.ode, self.u0, t_span_l[-1], u_span=pk_u_span, integrator=self.integrator_f, tol=self.tol_f)
-				p_span.append(pk)
+				pk_u_span = [ self.u0 ]
+				for i, t_interval in enumerate(zip(t_span[:-1], t_span[1:])):
+					gi = Propagator(self.ode, pk_u_span[-1], t_interval, integrator=self.integrator_g, tol=self.tol_g)
+					pk_u_span.append( gi.eval(t_interval[-1]) + fkprev.eval(t_interval[-1]) - gl[-1].eval(t_interval[-1]) )
 
-		return p_span, f_span, g_span
+				pk_u_span = np.asarray(pk_u_span).T
+				gk = Piecewise_Propagator(self.ode, self.u0, tl[-1], pk_u_span, integrator=self.integrator_g, tol=self.tol_g)
+				gl.append(gk)
+
+				pk = Piecewise_Propagator(self.ode, self.u0, tl[-1], pk_u_span, integrator=self.integrator_f, tol=self.tol_f)
+				pl.append(pk)
+
+		return pl, fl, gl
 
 	def balance_tasks(self, parareal_sol):
 		tl = list()
-		for i, ivp in enumerate(parareal_sol.ivp_span):
-			tl = tl + ivp.t[:-1].tolist()
+		for i, prop in enumerate(parareal_sol.propagator_span):
+			tl = tl + prop.ivp.t[:-1].tolist()
 		tl = tl + [self.tf]
 
 		which_idxs = lambda m, n: np.rint(np.linspace(1,n, min(m,n))-1).astype(int)
 		t_span = np.array(tl)[which_idxs(self.N+1,len(tl))]
 		return t_span
-
-def propagate(ode, u0, ti, tf, method, atol=1.e-8, rtol=1.e-13, **kwargs):
-
-    start = time.time()
-    solver = solve_ivp(ode.f, [ti, tf], u0, jac = ode.jac, method = method, atol=atol, rtol=rtol, dense_output=True)
-    end = time.time()
-
-    out = dict()
-    out['cpu_time'] = end-start
-
-    return solver, out

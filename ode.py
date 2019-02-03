@@ -18,6 +18,11 @@ class VDP():
     def info(self):
         return 'Van der Pool oscillator with mu='+str(self.mu)
 
+    def xlim(self):
+        return [-2., 2.]
+
+    def ylim(self):
+        return [-3.5, 3.5]
 
     def f(self, t, u):
         return np.array([ u[1], self.mu*(1 - u[0]*u[0])*u[1] - u[0] ])
@@ -45,6 +50,12 @@ class Brusselator():
 
     def info(self):
         return 'Brusselator with A='+str(self.A)+'; B='+str(self.B)
+
+    def xlim(self):
+        return [-0.5, 4.]
+
+    def ylim(self):
+        return [-0.5, 5.5]
 
     def f(self, t, u):
         x = u[0]
