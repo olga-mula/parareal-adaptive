@@ -62,24 +62,39 @@ elif ODE.name() == 'Brusselator':
     ode = ODE(A, B)
 elif ODE.name() == 'Oregonator':
     u0 = np.array([1., 2., 3.])
-    [ti, tf] = [0.0, 500]
+    [ti, tf] = [0.0, 100]
     method = 'BDF'
     ode = ODE()
 
 print(ode.info())
 
-# Test solution
-# =============
+# Parareal algorithm
+# ==================
 N = 10
 p = Parareal_Algorithm(ode, u0, [ti, tf], N)
 pl, fl, gl = p.run()
-c = p.compute_cost()
-print(c)
 
+# Evaluate cost
+# =============
+print('Cost.')
+print('======')
+cost_g, cost_f, cost_parareal, cost_exact = p.compute_cost()
+print('Exact propagator: ', cost_exact)
+print('Adaptive Parareal: ', cost_parareal)
+
+# Figures
+# =======
+# Exact solution
+plt.figure()
+p.exact.plot()
+plt.xlim(ode.ylim())
+plt.ylim(ode.ylim())
+plt.savefig(folder_name+'exact.pdf')
 
 for k, sol in enumerate(pl):
     plt.figure()
     sol.plot()
-    # p.exact.plot()
+    plt.xlim(ode.ylim())
     plt.ylim(ode.ylim())
-    plt.savefig(folder_name+'iter-k-'+str(k)+'.pdf')
+    plt.savefig(folder_name+'para-sol-k-'+str(k)+'.pdf')
+

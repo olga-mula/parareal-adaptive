@@ -16,7 +16,11 @@ class VDP():
         return 'VDP'
 
     def info(self):
-        return 'Van der Pool oscillator with mu='+str(self.mu)
+        s = 'Problem\n'
+        s += '=========\n'
+        s += 'Van der Pool oscillator with mu='+str(self.mu)
+        s += '\n'
+        return s
 
     def xlim(self):
         return [-2., 2.]
@@ -49,7 +53,11 @@ class Brusselator():
         return 'Brusselator'
 
     def info(self):
-        return 'Brusselator with A='+str(self.A)+'; B='+str(self.B)
+        s = 'Problem\n'
+        s += '=========\n'
+        s += 'Brusselator with A='+str(self.A)+'; B='+str(self.B)
+        s += '\n'
+        return s
 
     def xlim(self):
         return [-0.5, 4.]
@@ -83,6 +91,13 @@ class Oregonator():
     @staticmethod
     def name():
         return 'Oregonator'
+
+    def info(self):
+        s = 'Problem\n'
+        s += '=========\n'
+        s += 'Oregonator'
+        s += '\n'
+        return s
 
     def info(self):
         return 'Oregonator'

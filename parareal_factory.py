@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 from scipy.integrate import solve_ivp
 import time
+import warnings
 
 from ode import VDP, Brusselator, Oregonator
 
@@ -19,7 +20,9 @@ class Propagator():
 		self.tol = tol
 
 		start = time.time()
-		self.ivp = solve_ivp(ode.f, [self.ti, self.tf], u0, jac = ode.jac, method = integrator, atol=tol, rtol=tol, dense_output=True)
+		with warnings.catch_warnings():
+			warnings.filterwarnings("ignore")
+			self.ivp = solve_ivp(ode.f, [self.ti, self.tf], u0, jac = ode.jac, method = integrator, atol=tol, rtol=tol, dense_output=True)
 		end = time.time()
 
 		self.cost = {
@@ -125,7 +128,13 @@ class Parareal_Algorithm():
 			'nlu':      0.,  # Number of lu decompositions
 		}
 
-	def run(self, eps=1.e-6, kmax=3):
+	def run(self, eps=1.e-6, kmax=10):
+
+		print('Running Adaptive Parareal Algorithm.')
+		print('====================================')
+		print('Number of processors = '+str(self.N))
+		print('Target accuracy = '+str(eps))
+
 
 		# List of coarse, fine, parareal prop for each parareal iter k.
 		# List of t_span
@@ -170,6 +179,7 @@ class Parareal_Algorithm():
 
 				pk = Piecewise_Propagator(self.ode, self.u0, tl[-1], pk_u_span, integrator=self.integrator_f, tol=self.tol_f)
 				pl.append(pk)
+		print('End parareal iterations.\n')
 
 		self.pl = pl
 		self.fl = fl
@@ -198,5 +208,12 @@ class Parareal_Algorithm():
 		cfl = [f.compute_cost(type='parallel') for f in self.fl]
 		cost_f = {key: sum(c[key] for c in cfl) for key in keys}
 
-		return cost_g, cost_f
+		# Total cost of parareal algorithm
+		cl = [cost_g, cost_f]
+		cost_parareal = {key: sum(c[key] for c in cl) for key in keys}
+
+		# Cost exact solver
+		cost_exact = self.exact.cost
+
+		return cost_g, cost_f, cost_parareal, cost_exact
 
