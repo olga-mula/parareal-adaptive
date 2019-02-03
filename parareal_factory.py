@@ -39,7 +39,7 @@ class Propagator():
 			u_vec = self.eval(t_vec)
 			plt.plot(u_vec[0,:], u_vec[1,:], color=color)
 		else:
-			raise ValueError('Dimension of problem is '+str(self.dim)+'. Not supported for visualization.')
+			raise ValueError('Dimension of problem is {}. Not supported for visualization.'.format(self.dim))
 
 	def compute_cost(self, type='sequential'):
 		return self.cost
@@ -54,7 +54,8 @@ class Piecewise_Propagator():
 		self.tol = tol
 
 		self.t_span = t_span
-		self.interval_span = [[ti, tf] for (ti,tf) in zip(t_span[:-1], t_span[1:])]		
+		self.interval_span = [[ti, tf] for (ti,tf) in zip(t_span[:-1],
+		                                                  t_span[1:])]
 		self.u_span = np.asarray(u_span) # Column j has solution at time t_j
 		self.propagator_span = list()
 
@@ -69,26 +70,23 @@ class Piecewise_Propagator():
 			if t == self.t_span[-1]:
 				return self.propagator_span[-1].eval(t)
 			else:
-				idx_test = [int(t>=ti and t<tf) for (ti,tf) in self.interval_span]
+				idx_test = [int(t>=ti and t<tf) for (ti,tf)
+							in self.interval_span]
 				idx = np.argmax(idx_test)
 				return self.propagator_span[idx].eval(t)
 		else:
 			return np.array([self.eval(ti) for ti in t.tolist()]).T
 
 	def compute_cost(self, type='sequential'):
-		cl = list()
-		for prop in self.propagator_span:
-			cl.append(prop.cost)
-
-		keys = self.propagator_span[0].cost.keys()
-		cost = {key: 0. for key in keys}
+		cl = [prop.cost for prop in self.propagator_span]
 
 		if type=='sequential':
-			for key in keys:
-				cost[key] = sum(c[key] for c in cl)
+			aggregate = sum
 		else:
-			for key in keys:
-				cost[key] = max(c[key] for c in cl)
+			aggregate = max
+
+		keys = self.propagator_span[0].cost.keys()
+		cost = {key: aggregate(c[key] for c in cl) for key in keys}
 
 		self.cost = cost
 		return cost
@@ -181,24 +179,24 @@ class Parareal_Algorithm():
 
 	def balance_tasks(self, parareal_sol):
 		tl = list()
-		for i, prop in enumerate(parareal_sol.propagator_span):
-			tl = tl + prop.ivp.t[:-1].tolist()
-		tl = tl + [self.tf]
+		for prop in parareal_sol.propagator_span:
+			tl.extend(prop.ivp.t[:-1].tolist())
+		tl.append(self.tf)
 
-		which_idxs = lambda m, n: np.rint(np.linspace(1,n, min(m,n))-1).astype(int)
+		which_idxs = lambda m, n: np.rint(np.linspace(1,n, min(m,n))-1) \
+		                            .astype(int)
 		t_span = np.array(tl)[which_idxs(self.N+1,len(tl))]
 		return t_span
 
 	def compute_cost(self):
-		# Add cost of all coarse propagations
-		cgl = list()
-		for g in self.gl:
-			cgl.append(g.compute_cost())
-
 		keys = self.gl[0].cost.keys()
-		cost_g = {key: 0. for key in keys}
-		for key in keys:
-			cost_g[key] = sum(c[key] for c in cgl)
+		# Add cost of all coarse propagations
+		cgl = [g.compute_cost(type='sequential') for g in self.gl]
+		cost_g = {key: sum(c[key] for c in cgl) for key in keys}
 
-		return cost_g
+		# Add cost of fine propagators
+		cfl = [f.compute_cost(type='parallel') for f in self.fl]
+		cost_f = {key: sum(c[key] for c in cfl) for key in keys}
+
+		return cost_g, cost_f
 
