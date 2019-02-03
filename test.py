@@ -73,6 +73,9 @@ print(ode.info())
 N = 10
 p = Parareal_Algorithm(ode, u0, [ti, tf], N)
 pl, fl, gl = p.run()
+c = p.compute_cost()
+print(c)
+
 
 for k, sol in enumerate(pl):
     plt.figure()

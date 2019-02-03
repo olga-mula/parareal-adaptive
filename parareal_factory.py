@@ -4,6 +4,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 from scipy.integrate import solve_ivp
+import time
 
 from ode import VDP, Brusselator, Oregonator
 
@@ -16,7 +17,18 @@ class Propagator():
 		[self.ti, self.tf] = t_interval
 		self.integrator = integrator
 		self.tol = tol
+
+		start = time.time()
 		self.ivp = solve_ivp(ode.f, [self.ti, self.tf], u0, jac = ode.jac, method = integrator, atol=tol, rtol=tol, dense_output=True)
+		end = time.time()
+
+		self.cost = {
+			'cpu_time': end-start,
+			't_steps': len(self.ivp.t.tolist()),
+			'n_rhs':   self.ivp.nfev, # number of evaluations of rhs
+			'n_jac':   self.ivp.njev, # Number of evaluations of the Jacobian
+			'nlu':     self.ivp.nlu,  # Number of lu decompositions
+		}
 
 	def eval(self, t):
 		return self.ivp.sol(t) 
@@ -28,6 +40,9 @@ class Propagator():
 			plt.plot(u_vec[0,:], u_vec[1,:], color=color)
 		else:
 			raise ValueError('Dimension of problem is '+str(self.dim)+'. Not supported for visualization.')
+
+	def compute_cost(self, type='sequential'):
+		return self.cost
 
 class Piecewise_Propagator():
 
@@ -47,6 +62,8 @@ class Piecewise_Propagator():
 			u_init = u_span[:,i]
 			self.propagator_span.append(Propagator(ode, u_init, t_interval, integrator=integrator, tol=tol))
 
+		self.cost = None
+
 	def eval(self, t):
 		if isinstance(t, float):
 			if t == self.t_span[-1]:
@@ -57,6 +74,24 @@ class Piecewise_Propagator():
 				return self.propagator_span[idx].eval(t)
 		else:
 			return np.array([self.eval(ti) for ti in t.tolist()]).T
+
+	def compute_cost(self, type='sequential'):
+		cl = list()
+		for prop in self.propagator_span:
+			cl.append(prop.cost)
+
+		keys = self.propagator_span[0].cost.keys()
+		cost = {key: 0. for key in keys}
+
+		if type=='sequential':
+			for key in keys:
+				cost[key] = sum(c[key] for c in cl)
+		else:
+			for key in keys:
+				cost[key] = max(c[key] for c in cl)
+
+		self.cost = cost
+		return cost
 
 	def plot(self):
 		color_list = cm.tab20c(np.linspace(0, 1, len(self.t_span-1)))
@@ -80,7 +115,19 @@ class Parareal_Algorithm():
 
 		self.exact = Propagator(self.ode, self.u0, t_interval, integrator=self.integrator_f, tol=1.e-12)
 
-	def run(self, eps=1.e-6, kmax=12):
+		self.pl = None
+		self.fl = None
+		self.gl = None
+
+		self.cost = {
+			'cpu_time': 0.,
+			't_steps':  0.,
+			'n_rhs':    0., # number of evaluations of rhs
+			'n_jac':    0., # Number of evaluations of the Jacobian
+			'nlu':      0.,  # Number of lu decompositions
+		}
+
+	def run(self, eps=1.e-6, kmax=3):
 
 		# List of coarse, fine, parareal prop for each parareal iter k.
 		# List of t_span
@@ -92,7 +139,7 @@ class Parareal_Algorithm():
 		for k in range(kmax):
 
 			print('Iteration k='+str(k))
-			
+
 			if k == 0:
 				# Sequential propagation of coarse solver
 				g0 = Propagator(self.ode, self.u0, [self.ti, self.tf], integrator=self.integrator_g, tol=self.tol_g)
@@ -126,6 +173,10 @@ class Parareal_Algorithm():
 				pk = Piecewise_Propagator(self.ode, self.u0, tl[-1], pk_u_span, integrator=self.integrator_f, tol=self.tol_f)
 				pl.append(pk)
 
+		self.pl = pl
+		self.fl = fl
+		self.gl = gl
+
 		return pl, fl, gl
 
 	def balance_tasks(self, parareal_sol):
@@ -137,3 +188,17 @@ class Parareal_Algorithm():
 		which_idxs = lambda m, n: np.rint(np.linspace(1,n, min(m,n))-1).astype(int)
 		t_span = np.array(tl)[which_idxs(self.N+1,len(tl))]
 		return t_span
+
+	def compute_cost(self):
+		# Add cost of all coarse propagations
+		cgl = list()
+		for g in self.gl:
+			cgl.append(g.compute_cost())
+
+		keys = self.gl[0].cost.keys()
+		cost_g = {key: 0. for key in keys}
+		for key in keys:
+			cost_g[key] = sum(c[key] for c in cgl)
+
+		return cost_g
+
