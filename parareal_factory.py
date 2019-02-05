@@ -1,3 +1,7 @@
+"""
+    Copyright (c) 2019 Olga Mula
+"""
+
 import numpy as np
 import matplotlib
 matplotlib.use('Agg')
@@ -11,7 +15,7 @@ from ode import VDP, Brusselator, Oregonator
 
 class Propagator():
 
-	def __init__(self, ode, u0, t_interval, integrator='BDF', tol=1.e-10):
+	def __init__(self, ode, u0, t_interval, integrator='BDF', tol=1.e-12):
 		self.ode = ode
 		self.u0 = u0
 		self.dim = u0.shape[0]
@@ -49,7 +53,7 @@ class Propagator():
 
 class Piecewise_Propagator():
 
-	def __init__(self, ode, u0, t_span, u_span, integrator='BDF', tol=1.e-10):
+	def __init__(self, ode, u0, t_span, u_span, integrator='BDF', tol=1.e-12):
 		self.ode = ode
 		self.u0 = u0
 		self.dim = u0.shape[0]
@@ -102,7 +106,7 @@ class Piecewise_Propagator():
 			plt.plot(u_vec[0,:], u_vec[1,:], color=color_list[i])
 
 class Parareal_Algorithm():
-	def __init__(self, ode, u0, t_interval, N, integrator_g='RK23', tol_g = 1.e-2, integrator_f='BDF', tol_f=1.e-2):
+	def __init__(self, ode, u0, t_interval, N, integrator_g='RK45', tol_g = 1.e-1, integrator_f='RK45', tol_f=1.e-12):
 		self.ode   = ode
 		self.u0    = u0
 		[self.ti, self.tf] = t_interval
@@ -116,6 +120,7 @@ class Parareal_Algorithm():
 
 		self.exact = Propagator(self.ode, self.u0, t_interval, integrator=self.integrator_f, tol=1.e-12)
 
+		self.tl = None
 		self.pl = None
 		self.fl = None
 		self.gl = None
@@ -128,12 +133,13 @@ class Parareal_Algorithm():
 			'nlu':      0.,  # Number of lu decompositions
 		}
 
-	def run(self, eps=1.e-6, kmax=10):
+	def run(self, eps=1.e-6, kmax=5):
 
 		print('Running Adaptive Parareal Algorithm.')
 		print('====================================')
 		print('Number of processors = '+str(self.N))
 		print('Target accuracy = '+str(eps))
+		print(self.tol_g, self.tol_f)
 
 
 		# List of coarse, fine, parareal prop for each parareal iter k.
@@ -148,39 +154,51 @@ class Parareal_Algorithm():
 			print('Iteration k='+str(k))
 
 			if k == 0:
-				# Sequential propagation of coarse solver
-				g0 = Propagator(self.ode, self.u0, [self.ti, self.tf], integrator=self.integrator_g, tol=self.tol_g)
-				gl.append(g0)
-				pl.append(g0)
-
 				# First guess for macro-intervals
 				t_span = np.linspace(self.ti, self.tf, num=self.N+1, endpoint=True)
 				tl.append(t_span)
-				
+
+				# Sequential propagation of coarse solver
+				u_span_g = [ self.u0 ]
+				for i, t_interval in enumerate(zip(t_span[:-1], t_span[1:])):
+					gi = Propagator(self.ode, u_span_g[-1], t_interval, integrator=self.integrator_g, tol=self.tol_g)
+					u_span_g.append( gi.eval(t_interval[-1]) )
+				u_span_g = np.asarray(u_span_g).T
+				g0 = Piecewise_Propagator(self.ode, self.u0, tl[-1], u_span_g, integrator=self.integrator_g, tol=self.tol_g)
+
+				gl.append(g0)
+				pl.append(g0)
+
 			else:
 				# Fine propagator (k-1)
-				self.tol_f = 10**(-k-1) # TODO: Change this
+				self.tol_f = self.tol_g/ 10**(k+1) # TODO: Change this
 				fkprev = Piecewise_Propagator(self.ode, self.u0, tl[-1], pl[-1].eval(tl[-1]), integrator=self.integrator_f, tol=self.tol_f)
 				fl.append(fkprev)
 
 				# Update t_span with last fine propagation
-				t_span = self.balance_tasks(fl[-1])
+				t_span = np.linspace(self.ti, self.tf, num=self.N+1, endpoint=True)
+				# t_span = self.balance_tasks(fl[-1])
 				tl.append(t_span)
 
 				# Parareal solution
 				pk_u_span = [ self.u0 ]
 				for i, t_interval in enumerate(zip(t_span[:-1], t_span[1:])):
 					gi = Propagator(self.ode, pk_u_span[-1], t_interval, integrator=self.integrator_g, tol=self.tol_g)
-					pk_u_span.append( gi.eval(t_interval[-1]) + fkprev.eval(t_interval[-1]) - gl[-1].eval(t_interval[-1]) )
+					f = fkprev.propagator_span[i].eval(t_interval[-1])
+					g = gl[-1].propagator_span[i].eval(t_interval[-1])
+					pk_u_span.append( gi.eval(t_interval[-1]) + f - g )
 
 				pk_u_span = np.asarray(pk_u_span).T
 				gk = Piecewise_Propagator(self.ode, self.u0, tl[-1], pk_u_span, integrator=self.integrator_g, tol=self.tol_g)
 				gl.append(gk)
 
-				pk = Piecewise_Propagator(self.ode, self.u0, tl[-1], pk_u_span, integrator=self.integrator_f, tol=self.tol_f)
+				# pk = Piecewise_Propagator(self.ode, self.u0, tl[-1], pk_u_span, integrator=self.integrator_f, tol=self.tol_f)
+				pk = Piecewise_Propagator(self.ode, self.u0, tl[-1], pk_u_span, integrator=self.integrator_f, tol=1.e-10)
 				pl.append(pk)
+
 		print('End parareal iterations.\n')
 
+		self.tl = tl
 		self.pl = pl
 		self.fl = fl
 		self.gl = gl
@@ -199,7 +217,7 @@ class Parareal_Algorithm():
 		return t_span
 
 	def compute_cost(self):
-		keys = self.gl[0].cost.keys()
+		keys = self.gl[0].propagator_span[0].cost.keys()
 		# Add cost of all coarse propagations
 		cgl = [g.compute_cost(type='sequential') for g in self.gl]
 		cost_g = {key: sum(c[key] for c in cgl) for key in keys}
@@ -216,4 +234,21 @@ class Parareal_Algorithm():
 		cost_exact = self.exact.cost
 
 		return cost_g, cost_f, cost_parareal, cost_exact
+
+	def compute_error(self):
+
+		err = list()
+		t = self.exact.ivp.t
+
+		for k, pk in enumerate(self.pl):
+			# t = self.tl[k]
+			u_pk = pk.eval(t)
+			u_exact =  self.exact.eval(t)
+			err.append(np.linalg.norm(u_pk - u_exact, axis=0))
+
+		return err
+
+
+
+
 

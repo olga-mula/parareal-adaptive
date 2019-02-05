@@ -1,3 +1,7 @@
+"""
+    Copyright (c) 2019 Olga Mula
+"""
+
 import numpy as np
 from scipy.integrate import ode, solve_ivp
 import time

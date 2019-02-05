@@ -1,3 +1,7 @@
+"""
+    Copyright (c) 2019 Olga Mula
+"""
+
 import numpy as np
 import matplotlib
 matplotlib.use('Agg')
@@ -8,15 +12,6 @@ import argparse
 
 from ode import VDP, Brusselator, Oregonator
 from parareal_factory import Propagator, Piecewise_Propagator, Parareal_Algorithm
-
-# from __future__ import print_function
-# import numpy as np
-# from scipy.integrate import ode, solve_ivp
-# import time
-# from mpl_toolkits.mplot3d import Axes3D  # noqa: F401 unused import
-# import matplotlib as mpl
-# import matplotlib.pyplot as plt
-
 
 # Dictionary of available odes
 ode_dict = {'VDP': VDP, 'Brusselator': Brusselator, 'Oregonator':Oregonator}
@@ -48,7 +43,7 @@ else:
     ODE = ode_dict['VDP']
 
 if ODE.name() == 'VDP':
-    mu = 1.
+    mu = .1
     u0 = np.array([2, 0])
     [ti, tf] = [0.0, 7]
     method = 'LSODA'
@@ -74,10 +69,24 @@ N = 10
 p = Parareal_Algorithm(ode, u0, [ti, tf], N)
 pl, fl, gl = p.run()
 
+# Error
+# =====
+print('Convergence Analysis.')
+print('=====================')
+err = p.compute_error()
+
+plt.figure()
+for k, e in enumerate(err):
+    
+    t = p.exact.ivp.t
+    plt.semilogy(t, e, 'x', label='k='+str(k))
+plt.legend()
+plt.savefig(folder_name+'conv-parareal.pdf')
+
 # Evaluate cost
 # =============
 print('Cost.')
-print('======')
+print('=====')
 cost_g, cost_f, cost_parareal, cost_exact = p.compute_cost()
 print('Exact propagator: ', cost_exact)
 print('Adaptive Parareal: ', cost_parareal)
@@ -91,6 +100,7 @@ plt.xlim(ode.ylim())
 plt.ylim(ode.ylim())
 plt.savefig(folder_name+'exact.pdf')
 
+# Parareal solution
 for k, sol in enumerate(pl):
     plt.figure()
     sol.plot()
