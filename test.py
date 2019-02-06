@@ -43,16 +43,16 @@ else:
     ODE = ode_dict['VDP']
 
 if ODE.name() == 'VDP':
-    mu = .1
+    mu = 1.
     u0 = np.array([2, 0])
-    [ti, tf] = [0.0, 7]
+    [ti, tf] = [0.0, 20]
     method = 'LSODA'
     ode = ODE(mu)
 elif ODE.name() == 'Brusselator':
     A = 1.
     B = 3.
     u0 = np.array([0., 1.])
-    [ti, tf] = [0.0, 10]
+    [ti, tf] = [0.0, 10.]
     method = 'LSODA'
     ode = ODE(A, B)
 elif ODE.name() == 'Oregonator':
@@ -77,16 +77,34 @@ err = p.compute_error()
 
 plt.figure()
 for k, e in enumerate(err):
-    
     t = p.exact.ivp.t
     plt.semilogy(t, e, 'x', label='k='+str(k))
 plt.legend()
+plt.savefig(folder_name+'conv-parareal-detail.pdf')
+
+plt.figure()
+e = list()
+t = np.linspace(ti, tf, num=N+1, endpoint=True)
+for para in p.pl:
+    e.append(np.max(para.eval(t)-p.exact.eval(t)))
+plt.semilogy(e, 'o-')
+plt.legend()
 plt.savefig(folder_name+'conv-parareal.pdf')
+
 
 # Evaluate cost
 # =============
-print('Cost.')
-print('=====')
+print()
+print('Cost: tol to eps relation and eps to cpu_time and t_steps.')
+print('==========================================================')
+p.plot_tol_to_eps(folder_name)
+p.plot_eps_to_key(folder_name, key='cpu_time')
+p.plot_eps_to_key(folder_name, key='t_steps')
+
+
+print()
+print('Cost Parareal.')
+print('==============')
 cost_g, cost_f, cost_parareal, cost_exact = p.compute_cost()
 print('Exact propagator: ', cost_exact)
 print('Adaptive Parareal: ', cost_parareal)

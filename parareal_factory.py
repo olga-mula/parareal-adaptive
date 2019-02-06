@@ -7,7 +7,9 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
+from scipy.special import factorial
 from scipy.integrate import solve_ivp
+from scipy.interpolate import CubicSpline
 import time
 import warnings
 
@@ -105,20 +107,74 @@ class Piecewise_Propagator():
 			u_vec = self.eval(t_vec)
 			plt.plot(u_vec[0,:], u_vec[1,:], color=color_list[i])
 
+class SolverHelper():
+
+	def __init__(self, ode, u0, t_interval, integrator='RK45', integrator_e='LSODA', tol_e=1.e-13, type_norm='linf'):
+
+		self.ode   = ode
+		self.u0    = u0
+		[self.ti, self.tf] = t_interval
+		self.integrator = integrator
+		self.integrator_e = integrator_e
+		self.tol_e = tol_e
+		self.exact = Propagator(self.ode, self.u0, [self.ti, self.tf], integrator=self.integrator_e, tol=tol_e)
+
+		self.type_norm = type_norm
+		self.tol_span, self.eps_span, self.cost_span, self.tol_to_eps = \
+			self.compute_tol_to_eps(self.integrator, self.type_norm)
+
+	def compute_tol_to_eps(self, integrator, type_norm, n_tol=20):
+
+		if type_norm=='l2':
+			aggregate = sum
+			self.type_norm = 'l2'
+		elif type_norm=='linf':
+			aggregate = max
+			self.type_norm = 'linf'
+		else:
+			raise ValueError('Norm '+type_norm+' not supported in tol_to_eps.')
+
+		
+		t = self.exact.ivp.t
+		u_exact = self.exact.eval(t)
+		tol_span = np.logspace(np.log10(self.tol_e), 0., num=n_tol, base=10, endpoint=True)
+
+		eps_span = list()
+		cost_span = list()
+		for tol in tol_span:
+			p = Propagator(self.ode, self.u0, [self.ti, self.tf], integrator=integrator, tol=tol)
+			u = p.eval(t)
+
+			cost_span.append(p.compute_cost())
+			eps_span.append(aggregate(np.linalg.norm(u-u_exact, axis=0)))
+
+		cs = CubicSpline(tol_span, eps_span)
+
+		return tol_span, eps_span, cost_span, CubicSpline(tol_span, eps_span)
+
+
+
+
 class Parareal_Algorithm():
-	def __init__(self, ode, u0, t_interval, N, integrator_g='RK45', tol_g = 1.e-1, integrator_f='RK45', tol_f=1.e-12):
+	def __init__(self, ode, u0, t_interval, N, integrator_g='RK45',
+		tol_g = 1.e-1, integrator_f='LSODA', tol_f=1.e-12, tol_e=1.e-20):
+
 		self.ode   = ode
 		self.u0    = u0
 		[self.ti, self.tf] = t_interval
 		self.N = N # Number of processors
 
 		self.integrator_g = integrator_g
-		self.tol_g = tol_g
-
 		self.integrator_f = integrator_f
-		self.tol_f = tol_f
 
-		self.exact = Propagator(self.ode, self.u0, t_interval, integrator=self.integrator_f, tol=1.e-12)
+		self.sh_g = SolverHelper(ode, u0, t_interval, integrator=integrator_g, integrator_e = integrator_f, tol_e=1.e-13, type_norm='linf')
+		self.sh_f = SolverHelper(ode, u0, t_interval, integrator=integrator_f, integrator_e = integrator_f, tol_e=1.e-13, type_norm='linf')
+
+		self.tol_g = tol_g
+		self.tol_f = tol_f
+		self.tol_e = tol_e
+
+		self.exact = self.sh_f.exact
 
 		self.tl = None
 		self.pl = None
@@ -130,16 +186,15 @@ class Parareal_Algorithm():
 			't_steps':  0.,
 			'n_rhs':    0., # number of evaluations of rhs
 			'n_jac':    0., # Number of evaluations of the Jacobian
-			'nlu':      0.,  # Number of lu decompositions
+			'nlu':      0., # Number of lu decompositions
 		}
 
-	def run(self, eps=1.e-6, kmax=5):
+	def run(self, eps=1.e-6, kmax=1):
 
 		print('Running Adaptive Parareal Algorithm.')
 		print('====================================')
 		print('Number of processors = '+str(self.N))
 		print('Target accuracy = '+str(eps))
-		print(self.tol_g, self.tol_f)
 
 
 		# List of coarse, fine, parareal prop for each parareal iter k.
@@ -148,6 +203,8 @@ class Parareal_Algorithm():
 		fl = list()
 		pl = list()
 		tl = list()
+		eps_g = self.estimate_eps_g()
+		print('eps_g = '+str(eps_g))
 
 		for k in range(kmax):
 
@@ -171,7 +228,9 @@ class Parareal_Algorithm():
 
 			else:
 				# Fine propagator (k-1)
-				self.tol_f = self.tol_g/ 10**(k+1) # TODO: Change this
+				nuk = self.estimate_nu_k(pl[-1])
+				print('nu_k = '+str(nuk))
+				self.tol_f = eps_g/2 **(k+2)/ (nuk * factorial(k+1))
 				fkprev = Piecewise_Propagator(self.ode, self.u0, tl[-1], pl[-1].eval(tl[-1]), integrator=self.integrator_f, tol=self.tol_f)
 				fl.append(fkprev)
 
@@ -204,6 +263,21 @@ class Parareal_Algorithm():
 		self.gl = gl
 
 		return pl, fl, gl
+
+	def estimate_nu_k(self, parareal_prop_k):
+		t = parareal_prop_k.t_span
+		u_k = parareal_prop_k.u_span
+		u_exact = self.exact.eval(t)
+		return np.max(1 + np.linalg.norm(u_k, axis=0)) / np.max(1 + np.linalg.norm(u_exact, axis=0))
+
+	def estimate_eps_g(self):
+		t = self.exact.ivp.t[3:]
+		e = self.exact.eval(t)
+		g = Propagator(self.ode, self.u0, [self.ti,self.tf], integrator=self.integrator_g, tol=self.tol_g).eval(t)
+
+		return np.max(
+			np.linalg.norm(e-g, axis=0)/(t * (1+np.linalg.norm(e, axis=0))))
+
 
 	def balance_tasks(self, parareal_sol):
 		tl = list()
@@ -247,6 +321,48 @@ class Parareal_Algorithm():
 			err.append(np.linalg.norm(u_pk - u_exact, axis=0))
 
 		return err
+
+	def plot_eps_to_key(self, folder_name, key='cpu_time'):
+
+		if key not in self.cost.keys():
+			raise ValueError('Invalid key in plot_eps_to_cost')
+
+		# Fine solver
+		plt.figure()
+		plt.style.use('classic')
+		cost_cpu = [ c[key] for c in self.sh_g.cost_span ]
+		plt.loglog(self.sh_f.eps_span, cost_cpu, label=key)
+		plt.gca().yaxis.grid(True)
+		plt.xlabel(r'$\varepsilon$', fontsize=20)
+		plt.legend()
+		plt.savefig(folder_name+'eps_to_'+key+'_f.pdf')
+
+		# Coarse solver
+		plt.figure()
+		plt.style.use('classic')
+		cost_cpu = [ c[key] for c in self.sh_g.cost_span ]
+		plt.loglog(self.sh_g.eps_span, cost_cpu, label=key)
+		plt.gca().yaxis.grid(True)
+		plt.xlabel(r'$\varepsilon$', fontsize=20)
+		plt.legend()
+		plt.savefig(folder_name+'eps_to_'+key+'_g.pdf')
+
+	def plot_tol_to_eps(self, folder_name):
+
+		plt.figure()
+		plt.semilogx(self.sh_f.tol_span, self.sh_f.eps_span, 'o', label='computed')
+		tol_span_fine = np.logspace(np.log10(self.sh_f.tol_e), 0., num=100, base=10, endpoint=True)
+		plt.loglog(tol_span_fine, self.sh_f.tol_to_eps(tol_span_fine), label='interp. spline')
+		plt.legend()
+		plt.savefig(folder_name+'tol_to_eps_f.pdf')
+
+		plt.figure()
+		plt.semilogx(self.sh_g.tol_span, self.sh_g.eps_span, 'o', label='computed')
+		tol_span_fine = np.logspace(np.log10(self.sh_g.tol_e), 0., num=100, base=10, endpoint=True)
+		plt.loglog(tol_span_fine, self.sh_g.tol_to_eps(tol_span_fine), label='interp. spline')
+		plt.legend()
+		plt.savefig(folder_name+'tol_to_eps_g.pdf')
+
 
 
 
