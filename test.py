@@ -46,19 +46,23 @@ def summary_run(eps, p, pl, fl, gl, folder_name):
 	# Evaluate cost
 	# =============
 	print()
-	print('Cost: tol to eps relation and eps to cpu_time and t_steps.')
-	print('==========================================================')
-	p.plot_tol_to_eps(folder_name)
-	p.plot_eps_to_key(folder_name, key='cpu_time')
-	p.plot_eps_to_key(folder_name, key='t_steps')
-
-
-	print()
 	print('Cost Parareal.')
 	print('==============')
 	cost_g, cost_f, cost_parareal, cost_seq_fine = p.compute_cost(eps)
 	print('Sequential fine propagator: ', cost_seq_fine)
 	print('Parareal: ', cost_parareal)
+
+	print()
+	print('Cost: Save some figures.')
+	print('========================')
+	print('- Figure: tol to eps')
+	print('- Figure: eps to cpu_time and t_steps.')
+	print('- Figure: t_steps per macro-interval')
+	
+	p.plot_tol_to_eps(folder_name)
+	p.plot_eps_to_key(folder_name, key='cpu_time')
+	p.plot_eps_to_key(folder_name, key='t_steps')
+	p.plot_cost_detail(folder_name, key='t_steps')
 
 	# Figures
 	# =======
@@ -131,15 +135,22 @@ print(ode.info())
 
 # Parareal algorithm
 # ==================
-N = 10
-eps = 1.e-10
-p = Parareal_Algorithm(ode, u0, [ti, tf], N, integrator_g='RK45', integrator_f='Radau', eps_g = 1.e-1)
+N = 10					# Number of macro-intervals <=> Number of processors
+eps = 1.e-10			# Target accuracy
+integrator_f = 'Radau'	# Fine integrator
+integrator_g = 'RK45' 	# Coarse integrator
+eps_g = 1.e-1			# Accuracy coarse integrator
+balance_tasks_cp = False# Balance tasks in classical parareal
+balance_tasks_ap = True	# Balance tasks in adaptive parareal
+compute_sh = True		# Store eps-to-tol abacus
 
-# Classical parareal
-pl, fl, gl, k_classic = p.run(eps, adaptive=False)
+# Create object of class Parareal_Algorithm
+p = Parareal_Algorithm(ode, u0, [ti, tf], N, integrator_g=integrator_g, integrator_f=integrator_f, eps_g = eps_g, compute_sh=compute_sh)
+
+# Run classical parareal
+pl, fl, gl, k_classic = p.run(eps, adaptive=False, balance_tasks=balance_tasks_cp)
 summary_run(eps, p, pl, fl, gl, folder_name+'/non-adaptive/')
 
-# Adaptive parareal
-# p2 = Parareal_Algorithm(ode, u0, [ti, tf], N, integrator_g='RK45', integrator_f='RK45', eps_g = 1.e-1)
-pl, fl, gl, k_adaptive = p.run(eps, adaptive=True, kth = k_classic)
+# Run adaptive parareal
+pl, fl, gl, k_adaptive = p.run(eps, adaptive=True, balance_tasks=balance_tasks_ap, kth = k_classic)
 summary_run(eps, p, pl, fl, gl, folder_name+'/adaptive/')

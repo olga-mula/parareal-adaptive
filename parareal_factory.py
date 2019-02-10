@@ -12,10 +12,11 @@ from scipy.integrate import solve_ivp
 from scipy.interpolate import CubicSpline, UnivariateSpline
 import time
 import warnings
+import pickle
 
 from ode import VDP, Brusselator, Oregonator
 
-COEF_EXACT = 2
+COEF_EXACT = 3
 
 class Propagator():
 
@@ -124,7 +125,7 @@ class SolverHelper():
 
 		self.type_norm = type_norm
 		self.tol_span, self.eps_span, self.cost_span, self.tol_to_eps = \
-			self.compute_tol_to_eps(self.integrator, self.type_norm)
+			self.compute_tol_to_eps(self.integrator, self.type_norm, n_tol=20)
 
 	def compute_tol_to_eps(self, integrator, type_norm, n_tol=30):
 
@@ -166,7 +167,7 @@ class SolverHelper():
 
 class Parareal_Algorithm():
 	def __init__(self, ode, u0, t_interval, N,
-		integrator_g='RK45', integrator_f='RK45', eps_g = 1.e-1):
+		integrator_g='RK45', integrator_f='RK45', eps_g = 1.e-1, compute_sh=True):
 
 		self.ode   = ode
 		self.u0    = u0
@@ -176,8 +177,15 @@ class Parareal_Algorithm():
 		self.integrator_g = integrator_g
 		self.integrator_f = integrator_f
 
-		self.sh_g = SolverHelper(ode, u0, t_interval, integrator=integrator_g, integrator_e = integrator_f, tol_e=1.e-13, tol_interval=[1.e-13, 1.e-2], type_norm='linf')
-		self.sh_f = SolverHelper(ode, u0, t_interval, integrator=integrator_f, integrator_e = integrator_f, tol_e=1.e-13, tol_interval=[1.e-13, 1.e-2], type_norm='linf')
+		if compute_sh:
+			self.sh_g = SolverHelper(ode, u0, t_interval, integrator=integrator_g, integrator_e = integrator_f, tol_e=1.e-13, tol_interval=[1.e-13, 1.e-2], type_norm='linf')
+			self.sh_f = SolverHelper(ode, u0, t_interval, integrator=integrator_f, integrator_e = integrator_f, tol_e=1.e-13, tol_interval=[1.e-13, 1.e-2], type_norm='linf')
+
+			pickle.dump(self.sh_g, open(ode.name()+'/sh_g.p', 'wb'))
+			pickle.dump(self.sh_f, open(ode.name()+'/sh_f.p', 'wb'))
+		else:
+			self.sh_g = pickle.load(open(ode.name()+'/sh_g.p', 'rb'))
+			self.sh_f = pickle.load(open(ode.name()+'/sh_f.p', 'rb'))
 
 		self.eps_g = eps_g
 		self.tol_g = self.sh_g.eps_to_tol(eps_g)
@@ -197,7 +205,7 @@ class Parareal_Algorithm():
 			'nlu':      0., # Number of lu decompositions
 		}
 
-	def run(self, eps, kmax=15, adaptive=True, kth=0):
+	def run(self, eps, kmax=15, adaptive=True, balance_tasks=False, kth=0):
 
 		print()
 		print('Running Parareal Algorithm.')
@@ -223,8 +231,11 @@ class Parareal_Algorithm():
 
 			if k == 0:
 				# First guess for macro-intervals
-				t_span = np.linspace(self.ti, self.tf, num=self.N+1, endpoint=True)
-				# t_span = self.balance_tasks_with_exact_solver()
+				if balance_tasks:
+					# Balancing with a priori information
+					t_span = self.balance_tasks_with_exact_solver()
+				else:
+					t_span = np.linspace(self.ti, self.tf, num=self.N+1, endpoint=True)
 				tl.append(t_span)
 
 				# Sequential propagation of coarse solver
@@ -262,10 +273,16 @@ class Parareal_Algorithm():
 				fkprev = Piecewise_Propagator(self.ode, self.u0, tl[-1], pl[-1].eval(tl[-1]), integrator=self.integrator_f, tol= tol_f)
 				fl.append(fkprev)
 
-				# Update t_span with last fine propagation
-				t_span = np.linspace(self.ti, self.tf, num=self.N+1, endpoint=True)
-				# t_span = self.balance_tasks(fl[-1])
-				# t_span = self.balance_tasks_with_exact_solver()
+				# Update t_span
+				if balance_tasks:
+					# Balancing with a priori information
+					t_span = self.balance_tasks_with_exact_solver()
+
+					# Dynamic balancing
+					# t_span = self.balance_tasks(fl[-1])
+				else:
+					t_span = np.linspace(self.ti, self.tf, num=self.N+1, endpoint=True)
+				t_span = self.balance_tasks_with_exact_solver()
 				tl.append(t_span)
 
 				# Parareal solution
@@ -330,8 +347,6 @@ class Parareal_Algorithm():
 		# Add cost of all coarse propagations
 		cgl = [g.compute_cost(type='sequential') for g in self.gl]
 		cost_g = {key: sum(c[key] for c in cgl) for key in keys}
-		cost_g_seq = self.gl[0].compute_cost(type='sequential')
-		print('Sequential coarse: propagator', cost_g_seq)
 
 		# Add cost of fine propagators
 		cfl = [f.compute_cost(type='parallel') for f in self.fl]
@@ -343,7 +358,6 @@ class Parareal_Algorithm():
 
 		# Cost sequential fine solver
 		tol = self.sh_f.eps_to_tol(eps/COEF_EXACT)
-		print('Tol seq solver: '+str(tol))
 		cost_seq_fine = Propagator(self.ode, self.u0, [self.ti, self.tf], integrator=self.integrator_f, tol=tol).cost
 
 		return cost_g, cost_f, cost_parareal, cost_seq_fine
@@ -360,6 +374,33 @@ class Parareal_Algorithm():
 			err.append(np.linalg.norm(u_pk - u_exact, axis=0))
 
 		return err
+
+	def plot_cost_detail(self, folder_name, key='t_steps'):
+		"""
+			Plot of cost for each macro-interval
+		"""
+
+		plt.figure()
+		for k, g in enumerate(self.gl):
+			cost_g = list()
+			for gi in g.propagator_span:
+				cost_g.append(gi.cost[key])
+			plt.semilogy(cost_g, 'o-', label='coarse, k='+str(k))
+		plt.legend()
+		plt.savefig(folder_name+'cost_detail_g.pdf')
+
+		plt.figure()
+		for k, f in enumerate(self.fl):
+			cost_f = list()
+			for fi in f.propagator_span:
+				cost_f.append(fi.cost[key])
+			plt.semilogy(cost_f, 'o-', label='fine, k='+str(k))
+		plt.legend()
+		plt.savefig(folder_name+'cost_detail_f.pdf')
+
+		
+
+
 
 	def plot_eps_to_key(self, folder_name, key='cpu_time'):
 
