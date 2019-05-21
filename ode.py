@@ -12,8 +12,9 @@ class VDP():
         Van der Pool oscilator
     """
 
-    def __init__(self, *args):
-        self.mu = args[0]
+    def __init__(self, u0=np.array([2, 0]), mu=1.e6):
+        self.mu = mu
+        self.u0 = u0
 
     @staticmethod
     def name():
@@ -48,9 +49,10 @@ class Brusselator():
         Brusselator
     """
 
-    def __init__(self, *args):
-        self.A = float(args[0])
-        self.B = float(args[1])
+    def __init__(self, u0=np.array([0., 1.]), A=1., B=3.):
+        self.u0 = u0
+        self.A  = A
+        self.B  = B
 
     @staticmethod
     def name():
@@ -89,8 +91,8 @@ class Oregonator():
         Oregonator
     """
 
-    def __init__(self, *args):
-        pass
+    def __init__(self, u0 = np.array([1., 2., 3.])):
+        self.u0 = u0
 
     @staticmethod
     def name():
