@@ -49,6 +49,11 @@ def summary_run(eps, p, pl, fl, gl, folder_name):
 	print('Cost Parareal.')
 	print('==============')
 	cost_g, cost_f, cost_parareal, cost_seq_fine = p.compute_cost(eps)
+	np.savez(folder_name+'cost.npz',
+		cost_g=cost_g['t_steps'], cost_f=cost_f['t_steps'], cost_seq_fine=cost_seq_fine['t_steps'])
+	# To recover:
+	# d = load('cost.npz')
+	# cf = d['cost_f'].item()  ---> Returns int with cost in nb time steps
 	print('Sequential fine propagator: ', cost_seq_fine)
 	print('Parareal: ', cost_parareal)
 
@@ -83,74 +88,73 @@ def summary_run(eps, p, pl, fl, gl, folder_name):
 		plt.savefig(folder_name+'para-sol-k-'+str(k)+'.pdf')
 		plt.close()
 
-# Dictionary of available odes
-ode_dict = {'VDP': VDP, 'Brusselator': Brusselator, 'Oregonator':Oregonator}
-
 # MAIN PROGRAM
 # ============
+
+# Dictionary of available odes
+ode_dict = {'VDP': VDP, 'Brusselator': Brusselator, 'Oregonator': Oregonator}
+
+# Receive args
+# ------------
 parser = argparse.ArgumentParser()
-parser.add_argument('-ode', '--ode_name', help='{VDP, Brusselator, Oregonator}')
-parser.add_argument('-id','--id', help='Job ID for output folder')
+parser.add_argument(
+	'-ode', '--ode_name', default='Brusselator',
+	help='{VDP,Brusselator,Oregonator}')
+parser.add_argument(
+	'-N', '--N', type=int, default=10, help='Number of procs')
+parser.add_argument(
+	'-T', '--T', type=float, default=10, help='Final time')
+parser.add_argument(
+	'-eps', '--eps', type=float, default=1.e-6, help='Final target accuracy')
+parser.add_argument(
+	'-eps_g', '--eps_g', type=float, default=1.e-1, help='Accuracy coarse solver')
+parser.add_argument(
+	'-compute_sh', '--compute_sh', type=bool, default=True, help='Compute abacus')
+parser.add_argument(
+	'-id','--id', help='Job ID for output folder')
 args = parser.parse_args()
+
+# Set ode problem
+# ---------------
+if args.ode_name not in ode_dict:
+	raise Exception('ODE type '+args.ode_name+' not supported')
+
+ODE = ode_dict[args.ode_name]
+ode = ODE()
+print(ode.info())
 
 # Folder management
 # -----------------
-folder_name = ''
-if args.id is not None:
-	folder_name = args.ode_name + '/' + args.id + '/'
-else:
-	folder_name = args.ode_name + '/default/'
+T_formatted = '{:d}'.format(int(args.T))
+N_formatted = '{:d}'.format(args.N)
+eps_formatted = '{:.1e}'.format(args.eps)
+
+folder_name = args.ode_name + '/T_'+ T_formatted + '-N_'+ N_formatted + '-eps_'+ eps_formatted + '/'
+folder_name_sh = args.ode_name + '/T_'+T_formatted
 
 if not os.path.exists(folder_name):
 	os.makedirs(folder_name)
 
-# Set ode problem
-# ---------------
-ODE = None
-if args.ode_name in ode_dict:
-	ODE = ode_dict[args.ode_name]
-else:
-	ODE = ode_dict['VDP']
-
-if ODE.name() == 'VDP':
-	mu = 1.e6
-	u0 = np.array([2, 0])
-	[ti, tf] = [0.0, 11]
-	method = 'LSODA'
-	ode = ODE(mu)
-elif ODE.name() == 'Brusselator':
-	A = 1.
-	B = 3.
-	u0 = np.array([0., 1.])
-	[ti, tf] = [0.0, 10.]
-	method = 'LSODA'
-	ode = ODE(A, B)
-elif ODE.name() == 'Oregonator':
-	u0 = np.array([1., 2., 3.])
-	[ti, tf] = [0.0, 100]
-	method = 'BDF'
-	ode = ODE()
-
-print(ode.info())
-
 # Parareal algorithm
 # ==================
-N = 10					# Number of macro-intervals <=> Number of processors
-eps = 1.e-10			# Target accuracy
+ti = 0.
+tf = args.T         # Final time
+N     = args.N	    # Nb macro-intervals <=> Nb procs
+eps   = args.eps    # Target accuracy
+eps_g = args.eps_g  # Accuracy coarse integ
 integrator_f = 'Radau'	# Fine integrator
 integrator_g = 'RK45' 	# Coarse integrator
-eps_g = 1.e-1			# Accuracy coarse integrator
 balance_tasks_cp = False# Balance tasks in classical parareal
 balance_tasks_ap = True	# Balance tasks in adaptive parareal
-compute_sh = True		# Store eps-to-tol abacus
+compute_sh = args.compute_sh # Store eps-to-tol abacus
 
 # Create object of class Parareal_Algorithm
-p = Parareal_Algorithm(ode, u0, [ti, tf], N, integrator_g=integrator_g, integrator_f=integrator_f, eps_g = eps_g, compute_sh=compute_sh)
+p = Parareal_Algorithm(ode, ode.u0, [ti, tf], N, integrator_g=integrator_g, integrator_f=integrator_f, eps_g = eps_g, compute_sh=compute_sh)
 
 # Run classical parareal
 pl, fl, gl, k_classic = p.run(eps, adaptive=False, balance_tasks=balance_tasks_cp)
 summary_run(eps, p, pl, fl, gl, folder_name+'/non-adaptive/')
 
 # Run adaptive parareal
-pl, fl, gl, k_adaptive = p.run(eps, adaptive=True, balance_tasks=balance_tasks_ap, kth = k_classic)
+pl, fl, gl, k_adaptive = p.run(eps, adaptive=True, balance_tasks=balance_tasks_ap, kth = k_classic-1)
 summary_run(eps, p, pl, fl, gl, folder_name+'/adaptive/')
