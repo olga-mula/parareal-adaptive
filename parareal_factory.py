@@ -13,6 +13,7 @@ from scipy.interpolate import CubicSpline, UnivariateSpline
 import time
 import warnings
 import pickle
+import os
 
 from ode import VDP, Brusselator, Oregonator
 
@@ -177,15 +178,17 @@ class Parareal_Algorithm():
 		self.integrator_g = integrator_g
 		self.integrator_f = integrator_f
 
-		if compute_sh:
+		T_formatted = '{:d}'.format(int(self.tf))
+		if os.path.isfile(ode.name()+'/T_'+T_formatted+'-sh_g.p') and os.path.isfile(ode.name()+'/T_'+T_formatted+'-sh_g.p'):
+			# Load SolverHelper
+			self.sh_g = pickle.load(open(ode.name()+ '/T_'+str(self.tf)+'-sh_g.p', 'rb'))
+			self.sh_f = pickle.load(open(ode.name()+ '/T_'+str(self.tf)+'-sh_f.p', 'rb'))
+		else: # Compute SolverHelper from scratch
 			self.sh_g = SolverHelper(ode, u0, t_interval, integrator=integrator_g, integrator_e = integrator_f, tol_e=1.e-13, tol_interval=[1.e-13, 1.e-2], type_norm='linf')
 			self.sh_f = SolverHelper(ode, u0, t_interval, integrator=integrator_f, integrator_e = integrator_f, tol_e=1.e-13, tol_interval=[1.e-13, 1.e-2], type_norm='linf')
 
-			pickle.dump(self.sh_g, open(ode.name()+'/sh_g.p', 'wb'))
-			pickle.dump(self.sh_f, open(ode.name()+'/sh_f.p', 'wb'))
-		else:
-			self.sh_g = pickle.load(open(ode.name()+'/sh_g.p', 'rb'))
-			self.sh_f = pickle.load(open(ode.name()+'/sh_f.p', 'rb'))
+			pickle.dump(self.sh_g, open(ode.name()+ '/T_'+T_formatted+'-sh_g.p', 'wb'))
+			pickle.dump(self.sh_f, open(ode.name()+ '/T_'+T_formatted+'-sh_f.p', 'wb'))
 
 		self.eps_g = eps_g
 		self.tol_g = self.sh_g.eps_to_tol(eps_g)
@@ -397,9 +400,6 @@ class Parareal_Algorithm():
 			plt.semilogy(cost_f, 'o-', label='fine, k='+str(k))
 		plt.legend()
 		plt.savefig(folder_name+'cost_detail_f.pdf')
-
-		
-
 
 
 	def plot_eps_to_key(self, folder_name, key='cpu_time'):
