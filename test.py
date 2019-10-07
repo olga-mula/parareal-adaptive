@@ -49,13 +49,18 @@ def summary_run(eps, p, pl, fl, gl, folder_name):
 	print('Cost Parareal.')
 	print('==============')
 	cost_g, cost_f, cost_parareal, cost_seq_fine = p.compute_cost(eps)
-	np.savez(folder_name+'cost.npz',
-		cost_g=cost_g['t_steps'], cost_f=cost_f['t_steps'], cost_seq_fine=cost_seq_fine['t_steps'])
+
+	cg = cost_g['total']
+	cf = cost_f['total']
+	cseq = cost_seq_fine['total']
+	np.savez(folder_name+'cost.npz', cost_g=cg, cost_f=cf, cost_seq_fine=cseq)
 	# To recover:
 	# d = load('cost.npz')
 	# cf = d['cost_f'].item()  ---> Returns int with cost in nb time steps
-	print('Sequential fine propagator: ', cost_seq_fine)
-	print('Parareal: ', cost_parareal)
+	print('Sequential fine propagator: ', cost_seq_fine, cseq)
+	print('Coarse:', cost_g, cg)
+	print('Fine:', cost_f, cf)
+	print('Parareal: ', cost_parareal, cg+cf)
 
 	print()
 	print('Cost: Save some figures.')

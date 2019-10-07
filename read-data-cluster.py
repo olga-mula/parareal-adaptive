@@ -13,6 +13,8 @@ parser = argparse.ArgumentParser()
 parser.add_argument(
 	'-ode', '--ode_name', default='Brusselator',
 	help='{VDP,Brusselator,Oregonator}')
+parser.add_argument(
+	'-fn', '--fn', default='prod-cluster', help='foldername')
 args = parser.parse_args()
 if args.ode_name not in ode_dict:
 	raise Exception('ODE type '+args.ode_name+' not supported')
@@ -32,10 +34,10 @@ for T in tl:
 		for eps in epsl:
 			eps_formatted = '{:.1e}'.format(eps)
 
-			foldername = args.ode_name + '/prod-cluster/T_'+ T_formatted + '-N_'+ N_formatted + '-eps_'+ eps_formatted + '/'
+			fn_input = args.ode_name + '/'+ args.fn + '/T_'+ T_formatted + '-N_'+ N_formatted + '-eps_'+ eps_formatted + '/'
 
-			da = np.load(foldername+'adaptive/cost.npz')
-			dna = np.load(foldername+'non-adaptive/cost.npz')
+			da = np.load(fn_input+'adaptive/cost.npz')
+			dna = np.load(fn_input+'non-adaptive/cost.npz')
 
 			# Cost
 			ca = da['cost_f'].item()+da['cost_g'].item()
@@ -52,4 +54,4 @@ for T in tl:
 
 			d.append({'T': T, 'N': N, 'eps': eps, 'cseq': cseq, 'ca': ca, 'cna': cna, 'spa': spa, 'spna': spna, 'ea': ea, 'ena': ena})
 
-np.savez(args.ode_name+'/prod-cluster/data.npz', data=d)
+np.savez(args.ode_name+'/'+args.fn+'/data.npz', data=d)

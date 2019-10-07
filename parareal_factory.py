@@ -41,6 +41,8 @@ class Propagator():
 			'n_rhs':   self.ivp.nfev, # number of evaluations of rhs
 			'n_jac':   self.ivp.njev, # Number of evaluations of the Jacobian
 			'nlu':     self.ivp.nlu,  # Number of lu decompositions
+			'total':   len(self.ivp.t.tolist())+ \
+				self.ivp.nfev + self.ivp.njev + self.ivp.nlu
 		}
 
 	def eval(self, t):
@@ -181,8 +183,8 @@ class Parareal_Algorithm():
 		T_formatted = '{:d}'.format(int(self.tf))
 		if os.path.isfile(ode.name()+'/T_'+T_formatted+'-sh_g.p') and os.path.isfile(ode.name()+'/T_'+T_formatted+'-sh_g.p'):
 			# Load SolverHelper
-			self.sh_g = pickle.load(open(ode.name()+ '/T_'+str(self.tf)+'-sh_g.p', 'rb'))
-			self.sh_f = pickle.load(open(ode.name()+ '/T_'+str(self.tf)+'-sh_f.p', 'rb'))
+			self.sh_g = pickle.load(open(ode.name()+ '/T_'+T_formatted+'-sh_g.p', 'rb'))
+			self.sh_f = pickle.load(open(ode.name()+ '/T_'+T_formatted+'-sh_f.p', 'rb'))
 		else: # Compute SolverHelper from scratch
 			self.sh_g = SolverHelper(ode, u0, t_interval, integrator=integrator_g, integrator_e = integrator_f, tol_e=1.e-13, tol_interval=[1.e-13, 1.e-2], type_norm='linf')
 			self.sh_f = SolverHelper(ode, u0, t_interval, integrator=integrator_f, integrator_e = integrator_f, tol_e=1.e-13, tol_interval=[1.e-13, 1.e-2], type_norm='linf')
@@ -268,7 +270,7 @@ class Parareal_Algorithm():
 					if k < kth:
 						eps_f = np.logspace(np.log10(self.eps_g), np.log10(eps/COEF_EXACT), num=kth, endpoint=True)[k]
 					else:
-						eps_f = np.log10(eps/COEF_EXACT)
+						eps_f = eps/COEF_EXACT
 					tol_f = self.sh_f.eps_to_tol(eps_f)
 				else:
 					tol_f = self.sh_f.eps_to_tol(eps/COEF_EXACT)
