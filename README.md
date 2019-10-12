@@ -5,7 +5,7 @@ This folder contains the sources of the paper
 
   "An adaptive parareal algorithm"
 
-by Y. Maday and O. Mula. [Arxiv link](http://dx.doi.org/10.11588/ans.2017.1.27719)
+by Y. Maday and O. Mula. [Arxiv link](https://arxiv.org/pdf/1909.08333.pdf)
 
 Required software
 =================
