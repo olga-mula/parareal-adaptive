@@ -77,8 +77,8 @@ p = Parareal_Algorithm(ode, ode.u0, [ti, tf], N, integrator_g=integrator_g, inte
 
 # Run classical parareal and store information on preformance
 pl, fl, gl, k_classic = p.run(eps, adaptive=False, balance_tasks=balance_tasks_cp, kmax=15)
-summary_run(eps, p, pl, fl, gl, folder_name+'/non-adaptive/')
+summary_run(eps, k_classic, p, pl, fl, gl, folder_name+'/non-adaptive/')
 
 # Run adaptive parareal and store information on preformance
 pl, fl, gl, k_adaptive = p.run(eps, adaptive=True, balance_tasks=balance_tasks_ap, kth = k_classic-1, kmax=15)
-summary_run(eps, p, pl, fl, gl, folder_name+'/adaptive/')
+summary_run(eps, k_adaptive, p, pl, fl, gl, folder_name+'/adaptive/')

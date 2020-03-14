@@ -27,7 +27,7 @@ args = parser.parse_args()
 if args.ode_name not in ode_dict:
 	raise Exception('ODE type '+args.ode_name+' not supported')
 
-data = np.load(args.ode_name+'/'+args.fn+'/data.npz')['data']
+data = np.load(args.ode_name+'/'+args.fn+'/data.npz',allow_pickle=True)['data']
 
 # Plots
 # -----
@@ -38,29 +38,35 @@ neps = [1.e-6, 1.e-8]
 
 # Color map
 values = range(len(neps))
-jet = cm = plt.get_cmap('jet') 
+cm = plt.get_cmap('cool') 
 cNorm  = colors.Normalize(vmin=0, vmax=values[-1])
-scalarMap = cmx.ScalarMappable(norm=cNorm, cmap=jet)
+scalarMap = cmx.ScalarMappable(norm=cNorm, cmap=cm)
 
 pltstyle = plt.plot
 
+colorList = ['black', 'orange']
+
 for i, T in enumerate(tl):
 
-	# Speed-up as a function of N (parameter: eps)
-	plt.plot()
-	for j, eps in enumerate(neps):
+  # Speed-up as a function of N (parameter: eps)
+  plt.plot()
+  for j, eps in enumerate(neps):
 
-		colorVal = scalarMap.to_rgba(values[j])
+    colorVal = scalarMap.to_rgba(values[j])
+    colorVal = colorList[j]
 
-		sa = [ [d['N'], d['spa']] for d in data if (d['T']==T and d['eps']==eps)]
-		pltstyle([ s[0] for s in sa ], [ s[1] for s in sa ], color=colorVal, marker='o', linestyle = '-', label='$\eta$='+str(eps))
+    sa = [ [d['N'], d['spa']] for d in data if (d['T']==T and d['eps']==eps)]
+    pltstyle([ s[0] for s in sa ], [ s[1] for s in sa ], color=colorVal, marker='o', linestyle = '-', label='$\eta$='+str(eps)+' (Adaptive)')
 
-		sna = [ [d['N'], d['spna']] for d in data if (d['T']==T and d['eps']==eps)]
-		pltstyle([ s[0] for s in sna ], [ s[1] for s in sna ], color=colorVal, marker='x', linestyle = ':')
+    sna = [ [d['N'], d['spna']] for d in data if (d['T']==T and d['eps']==eps)]
+    pltstyle([ s[0] for s in sna ], [ s[1] for s in sna ], color=colorVal, marker='x', linestyle = ':', label='$\eta$='+str(eps)+' (Non Adaptive)')
 
-	plt.ylim([1., 15])
+	plt.ylim([0.1, 15])
+	plt.xlabel('Time t')
+	plt.ylabel('Speed-up')
 	plt.title('T='+str(T))
 	plt.legend()
+	plt.tight_layout()
 	plt.savefig(args.ode_name+'/'+args.fn+'/speedup-T'+str(T)+'.pdf')
 	plt.close()
 
@@ -69,6 +75,7 @@ for i, T in enumerate(tl):
 	for j, eps in enumerate(neps):
 
 		colorVal = scalarMap.to_rgba(values[j])
+		colorVal = colorList[j]
 
 		sa = [ [d['N'], d['ea']] for d in data if (d['T']==T and d['eps']==eps)]
 		pltstyle([ s[0] for s in sa ], [ s[1] for s in sa ], color=colorVal, marker='o', linestyle = '-', label='$\eta$='+str(eps))
