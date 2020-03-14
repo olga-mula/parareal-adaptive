@@ -1,11 +1,13 @@
 """
-	Copyright (c) 2019 Olga Mula
+	Copyright (c) 2019 Olga Mula, Paris Dauphine University
 """
 
 import numpy as np
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
+import matplotlib.colors as colors
+import matplotlib.cm as cmx
 
 import os
 import argparse
@@ -24,10 +26,14 @@ def summary_run(eps, p, pl, fl, gl, folder_name):
 	print('=====================')
 	err = p.compute_error()
 
+	values = range(7)
+	cm = plt.get_cmap('jet') 
+	cNorm  = colors.Normalize(vmin=0, vmax=values[-1])
+	scalarMap = cmx.ScalarMappable(norm=cNorm, cmap=cm)
 	plt.figure()
 	for k, e in enumerate(err):
 		t = p.exact.ivp.t
-		plt.semilogy(t, e, 'x', label='k='+str(k))
+		plt.semilogy(t, e, 'x', label='k='+str(k), color=scalarMap.to_rgba(values[k]))
 	plt.legend()
 	plt.savefig(folder_name+'conv-parareal-detail.pdf')
 	plt.close()
@@ -140,17 +146,18 @@ folder_name_sh = args.ode_name + '/T_'+T_formatted
 if not os.path.exists(folder_name):
 	os.makedirs(folder_name)
 
-# Parareal algorithm
-# ==================
+# Parareal algorithm.
+# Some parameters are set via script arguments
+# ============================================
 ti = 0.
-tf = args.T         # Final time
-N     = args.N	    # Nb macro-intervals <=> Nb procs
-eps   = args.eps    # Target accuracy
-eps_g = args.eps_g  # Accuracy coarse integ
-integrator_f = 'Radau'	# Fine integrator
-integrator_g = 'RK45' 	# Coarse integrator
-balance_tasks_cp = False# Balance tasks in classical parareal
-balance_tasks_ap = True	# Balance tasks in adaptive parareal
+tf = args.T                  # Final time
+N     = args.N	             # Nb macro-intervals <=> Nb procs
+eps   = args.eps             # Target accuracy
+eps_g = args.eps_g           # Accuracy coarse integ
+integrator_f = 'Radau'	     # Fine integrator
+integrator_g = 'RK45' 	     # Coarse integrator
+balance_tasks_cp = False     # Balance tasks in classical parareal
+balance_tasks_ap = True	     # Balance tasks in adaptive parareal
 compute_sh = args.compute_sh # Store eps-to-tol abacus
 
 # Create object of class Parareal_Algorithm
