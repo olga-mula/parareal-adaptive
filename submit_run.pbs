@@ -1,19 +1,20 @@
 #!/bin/bash
-# Fichier submission.pbs
 #PBS -N parareal
 #PBS -l nodes=1:ppn=2
-#PBS -M mula@ceremade.dauphine.fr
 #PBS -m e
 #PBS -o Brusselator/T_${T}-N_${N}-eps_${EPS}/log.o
 #PBS -e Brusselator/T_${T}-N_${N}-eps_${EPS}/log.e
 
 cd $PBS_O_WORKDIR
 
-# So that OpenMP uses a number ppn of threads
+# Make that OpenMP uses a number ppn of threads
 OMP_NUM_THREADS=$PBS_NUM_PPN
 export  OMP_NUM_THREADS
 
+# Folder management
 rm -rf Brusselator/T_${T}-N_${N}-eps_${EPS}
 mkdir Brusselator/T_${T}-N_${N}-eps_${EPS}
+
+# Run
 pyenv shell 3.6.2
-python3 test.py -T ${T} -N ${N} -eps ${EPS}
+python3 run_parareal.py -T ${T} -N ${N} -eps ${EPS}
