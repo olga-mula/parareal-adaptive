@@ -1,5 +1,5 @@
 #!/bin/bash
-#PBS -N parareal
+#PBS -N para-Brus
 #PBS -l nodes=1:ppn=2
 #PBS -m e
 #PBS -o Brusselator/T_${T}-N_${N}-eps_${EPS}/log.o
