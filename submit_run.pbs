@@ -17,4 +17,4 @@ mkdir Brusselator/T_${T}-N_${N}-eps_${EPS}
 
 # Run
 pyenv shell 3.6.2
-python3 run_parareal.py -T ${T} -N ${N} -eps ${EPS}
+python3 run_parareal.py -ode Brusselator -T ${T} -N ${N} -eps ${EPS}
