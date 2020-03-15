@@ -34,8 +34,8 @@ All parameters are optional and the default values are:
 - ode: Brusselator
 - T: 10
 - N: 10
-- eps: `$10^{-6}$`
-- eps_g: `$10^{-1}$`
+- eps: $`10^{-6}`$
+- eps_g: $`10^{-1}`$
 - fn: default
 
 How to reproduce the results of the paper
