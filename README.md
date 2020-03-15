@@ -52,7 +52,9 @@ and stores each run in a folder, e.g., Brusselator/T_10-N_20-eps_1.0e-08.
 
 Once this is done, you can build the performance plots of the paper by calling
 
+```
 python3 study_performance.py -ode odename -fn foldername
+```
 
 How to test other ODEs
 ======================
