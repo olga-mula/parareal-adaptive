@@ -9,22 +9,19 @@ We compare its performance with the classical parareal algorithm.
 
 import os
 import argparse
-from ode import VDP, Brusselator, Oregonator
+from ode import ode_dict
 from parareal_factory import Propagator, Piecewise_Propagator, Parareal_Algorithm
 from summary_factory import summary_run
 
 # MAIN PROGRAM
 # ============
 
-# Dictionary of available odes
-ode_dict = {'VDP': VDP, 'Brusselator': Brusselator, 'Oregonator': Oregonator}
-
 # Receive args
 # ------------
 parser = argparse.ArgumentParser()
 parser.add_argument(
 	'-ode', '--ode_name', default='Brusselator',
-	help='{VDP,Brusselator,Oregonator}')
+	help='{{{}}}'.format(', '.join(sorted(ode_dict.keys()))))
 parser.add_argument(
 	'-N', '--N', type=int, default=10, help='Number of procs')
 parser.add_argument(

@@ -11,14 +11,14 @@ Required software
 =================
 Python >= 3.7
 
-Required modules: scipy, numpy, matplotlib, os, sys, time, pickle, argparse, pandas
+Required packages: scipy, numpy, matplotlib, pandas
 
 Running the adaptive and classical parareal algorithm
 =====================================================
 You can run the adaptive and classical parareal algorithm by calling
 
 ```
-python3 run_parareal.py -ode odename -T 200 - N 10 -eps 1.e-8 -eps_g 0.1 -fn foldername
+python3 run_parareal.py -ode odename -T 200 -N 10 -eps 1.e-8 -eps_g 0.1 -fn foldername
 ```
 
 The parameters are the following:
@@ -59,8 +59,7 @@ python3 study_performance.py -ode odename -fn foldername
 How to test other ODEs
 ======================
 - Add a class `MY_NEW_ODE` in ode.py following the already existing examples.
-- In run_parareal.py, import the class `MY_NEW_ODE`, and add a new keyword in argparse.
-- In parareal_factory.py, import the class `MY_NEW_ODE`.
+- Add a keyword for the new ode in ode_dict at the end of the file ode.py.
 
 Licence
 =======

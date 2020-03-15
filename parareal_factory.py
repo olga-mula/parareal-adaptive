@@ -17,8 +17,6 @@ import warnings
 import pickle
 import os
 
-from ode import VDP, Brusselator, Oregonator
-
 COEF_EXACT = 3
 
 class Propagator():

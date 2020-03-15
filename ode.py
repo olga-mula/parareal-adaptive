@@ -106,3 +106,7 @@ class Brusselator():
     j[1, 0] = self.B - 2*x*y
     j[1, 1] = x**2
     return j
+
+
+# Dictionary of available odes
+ode_dict = {'VDP': VDP, 'Brusselator': Brusselator}

@@ -16,7 +16,7 @@ from matplotlib.ticker import MaxNLocator
 import matplotlib.colors as colors
 import matplotlib.cm as cmx
 
-from ode import VDP, Brusselator, Oregonator
+from ode import ode_dict
 
 def read_results(parent_dir):
   """Extract results from folder of type parent_dir+'T_(\d+)-N_(\d+)-eps_(.*)' """
@@ -120,11 +120,10 @@ def plot_performance(parent_dir, dataf):
 
 if __name__ == "__main__":
 
-  # Dictionary of available odes
-  ode_dict = {'VDP': VDP, 'Brusselator': Brusselator, 'Oregonator': Oregonator}
   # Receive args
   parser = argparse.ArgumentParser()
-  parser.add_argument('-ode', default='Brusselator', help='{VDP,Brusselator,Oregonator}')
+  parser.add_argument('-ode', default='Brusselator',
+    help='{{{}}}'.format(', '.join(sorted(ode_dict.keys()))))
   parser.add_argument('-fn', default='prod-cluster',help='foldername')
   args = parser.parse_args()
   if args.ode not in ode_dict:
