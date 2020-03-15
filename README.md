@@ -57,8 +57,10 @@ python3 study_performance.py -ode odename -fn foldername
 How to test other ODEs
 ======================
 - Add a class `MY_NEW_ODE` in ode.py following the already existing examples.
-- In run_parareal.py, import the class `MY_NEW_ODE`, and add a new key 
+- In run_parareal.py, import the class `MY_NEW_ODE`, and add a new keyword in argparse.
+- In parareal_factory.py, import the class `MY_NEW_ODE`.
 
-Copyright
-=========
+Licence
+=======
+Licensing information can be found in the accompanying file [COPYING.md](COPYING.md).
 Copyright (c) 2019, Olga Mula (Paris Dauphine University).

@@ -1,5 +1,7 @@
 """
-	Copyright (c) 2019 Olga Mula, Paris Dauphine University
+SPDX-FileCopyrightText: 2019 Olga Mula (Paris Dauphine University)
+
+SPDX-License-Identifier: GPL-3.0-or-later
 """
 
 import os

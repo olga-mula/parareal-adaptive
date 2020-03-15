@@ -1,8 +1,10 @@
 """
-	Copyright (c) 2019 Olga Mula, Paris Dauphine University.
+SPDX-FileCopyrightText: 2019 Olga Mula (Paris Dauphine University)
 
-  This routine solves an ODE with the adaptive parareal algorithm.
-  We compare its performance with the classical parareal algorithm.
+SPDX-License-Identifier: GPL-3.0-or-later
+
+This routine solves an ODE with the adaptive parareal algorithm.
+We compare its performance with the classical parareal algorithm.
 """
 
 import os
