@@ -1,3 +1,7 @@
+"""
+    Copyright (c) 2019 Olga Mula
+"""
+
 import argparse
 import numpy as np
 import re

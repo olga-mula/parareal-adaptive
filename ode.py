@@ -8,11 +8,17 @@ import time
 
 
 class VDP():
-  """
-      Van der Pool oscilator
-  """
+  """Van der Pol oscilator"""
 
   def __init__(self, u0=np.array([2, 0]), mu=4):
+    """ODE of the type du/dt = f(t,u)
+
+    Arguments:
+      u0: initial condition
+      mu: parameter of the Van der Pol equation:
+        - mu close to 0 -> nonstiff equation
+        - mu > 0.1       -> stiff equation
+    """
     self.mu = mu
     self.u0 = u0
 
@@ -21,22 +27,27 @@ class VDP():
     return 'VDP'
 
   def info(self):
+    """Print info about ODE"""
     s = 'Problem\n'
     s += '=========\n'
-    s += 'Van der Pool oscillator with mu='+str(self.mu)
+    s += 'Van der Pol oscillator with mu='+str(self.mu)
     s += '\n'
     return s
 
   def xlim(self):
+    """Limits abscissae (for plotting purposes)"""
     return [-2., 2.]
 
   def ylim(self):
+    """Limits ordinates (for plotting purposes)"""
     return [-6.5, 6.5]
 
   def f(self, t, u):
+    """du/dt = f(t,u)"""
     return np.array([ u[1], self.mu*(1 - u[0]*u[0])*u[1] - u[0] ])
 
   def jac(self, t, u):
+    """Jacobian of f(t,u)"""
     j = np.empty((2, 2))
     j[0, 0] = 0.0
     j[0, 1] = 1.0
@@ -45,11 +56,15 @@ class VDP():
     return np.array([[0., 1.],[-self.mu*2*u[0]*u[1]-1., self.mu*(1 - u[0]*u[0])]])
 
 class Brusselator():
-  """
-      Brusselator
-  """
+  """Brusselator system"""
 
   def __init__(self, u0=np.array([0., 1.]), A=1., B=3.):
+    """ODE of the type du/dt = f(t,u)
+
+    Arguments:
+      u0: initial condition
+      A, B: parameters of the Brusselator equation
+    """
     self.u0 = u0
     self.A  = A
     self.B  = B
@@ -66,17 +81,21 @@ class Brusselator():
     return s
 
   def xlim(self):
+    """Limits abscissae (for plotting purposes)"""
     return [-0.5, 4.]
 
   def ylim(self):
+    """Limits ordinates (for plotting purposes)"""
     return [-0.5, 5.5]
 
   def f(self, t, u):
+    """du/dt = f(t,u)"""
     x = u[0]
     y = u[1]
     return np.asarray([self.A+(x**2)*y-(self.B+1.)*x, self.B*x - (x**2)*y])
 
   def jac(self, t, u):
+    """Jacobian of f(t,u)"""
     x = u[0]
     y = u[1]
     j = np.empty((2, 2))
@@ -85,54 +104,3 @@ class Brusselator():
     j[1, 0] = self.B - 2*x*y
     j[1, 1] = x**2
     return j
-
-class Oregonator():
-  """Oregonator"""
-
-  def __init__(self, u0 = np.array([1., 2., 3.])):
-    self.u0 = u0
-
-  @staticmethod
-  def name():
-    return 'Oregonator'
-
-  def info(self):
-    s = 'Problem\n'
-    s += '=========\n'
-    s += 'Oregonator'
-    s += '\n'
-    return s
-
-  def info(self):
-    return 'Oregonator'
-
-  def f(self, t, u):
-    f = np.zeros(3)
-    f[0] = 77.27*(u[1]+u[0]*(1.-8.375e-6*u[0]-u[1]))
-    f[1] = (1./77.27)*(u[2]-(1+u[0])*u[1])
-    f[2] = 0.161*(u[0]-u[2])
-    return f
-
-  def jac(self, t, u):
-    j = np.empty((3, 3))
-    j[0, 0] = 77.27*( (1.-8.375e-6*u[0]-u[1]) -8.375e-6*u[0])
-    j[0, 1] = 77.27*( 1.-u[0] )
-    j[0, 2] = 0.
-    j[1, 0] = (1./77.27)*(-u[1])
-    j[1, 1] = (1./77.27)*(-(1+u[0]))
-    j[1, 2] = (1./77.27)
-    j[2, 0] = 0.161
-    j[2, 1] = 0.
-    j[2, 2] = -0.161
-    return j 
-
-def propagate(ode, u0, ti, tf, method, atol=1.e-8, rtol=1.e-13, **kwargs):
-
-  start = time.time()
-  solver = solve_ivp(ode.f, [ti, tf], u0, jac = ode.jac, method = method, atol=atol, rtol=rtol, dense_output=True)
-  end = time.time()
-
-  out = dict()
-  out['cpu_time'] = end-start
-
-  return solver, out
