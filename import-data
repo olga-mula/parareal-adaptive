@@ -1,9 +1,0 @@
-#!/bin/bash
-
-rsync -avz --exclude='*.pdf' --exclude='*.p' --include='*.npz' cluster:parareal/VDP /Users/mula/Documents/research/notes/parareal/code/VDP/prod-cluster
-
-# rsync -avz --exclude='*.pdf' --exclude='*.p' --include='*.npz' cluster:parareal/Brusselator/ /Users/mula/Documents/research/notes/parareal/code/Brusselator/prod-cluster-new
-
-# rsync -avz --exclude='*.p' --include='*.npz' cluster:parareal/Brusselator/T_20-N_20-eps_1.0e-08 /Users/mula/Documents/research/notes/parareal/code/Brusselator
-
-# rsync -avz --exclude='*.p' --include='*.npz' cluster:parareal/Brusselator/T_500-N_50-eps_1.0e-08 /Users/mula/Documents/research/notes/parareal/code/Brusselator

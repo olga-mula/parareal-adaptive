@@ -5,3 +5,6 @@ VDP/
 __pycache__/
 
 test-nark.py
+nonadaptive_rungekutta.py
+import-data
+update-cluster.sh
