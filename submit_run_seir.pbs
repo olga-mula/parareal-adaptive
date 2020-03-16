@@ -1,0 +1,21 @@
+#!/bin/bash
+#PBS -N para-SEIR
+#PBS -l nodes=1:ppn=2
+#PBS -M mula@ceremade.dauphine.fr
+#PBS -m e
+#PBS -o SEIR/T_${T}-N_${N}-eps_${EPS}/log.o
+#PBS -e SEIR/T_${T}-N_${N}-eps_${EPS}/log.e
+
+cd $PBS_O_WORKDIR
+
+# Make that OpenMP uses a number ppn of threads
+OMP_NUM_THREADS=$PBS_NUM_PPN
+export  OMP_NUM_THREADS
+
+# Folder management
+rm -rf VDP/T_${T}-N_${N}-eps_${EPS}
+mkdir VDP/T_${T}-N_${N}-eps_${EPS}
+
+# Run
+pyenv shell 3.6.2
+python3 run_parareal.py -ode VDP -T ${T} -N ${N} -eps ${EPS}
