@@ -20,7 +20,7 @@ from summary_factory import summary_run
 # ------------
 parser = argparse.ArgumentParser()
 parser.add_argument(
-	'-ode', '--ode_name', default='Brusselator',
+	'-ode', '--ode', default='Brusselator',
 	help='{{{}}}'.format(', '.join(sorted(ode_dict.keys()))))
 parser.add_argument(
 	'-N', '--N', type=int, default=10, help='Number of procs')
@@ -33,15 +33,23 @@ parser.add_argument(
 parser.add_argument(
 	'-compute_sh', '--compute_sh', type=bool, default=True, help='Compute abacus')
 parser.add_argument(
+	'-integrator_f', '--integrator_f', type=bool, default='Radau', help='Fine integrator: {RK45, RK23, DOP853, Radau, LSODA}')
+  parser.add_argument(
+	'-integrator_g', '--integrator_g', type=bool, default='RK45', help='Fine integrator: {RK45, RK23, DOP853, Radau, LSODA}')
+parser.add_argument(
 	'-id','--id', help='Job ID for output folder')
 args = parser.parse_args()
 
 # Set ode problem
 # ---------------
-if args.ode_name not in ode_dict:
-	raise Exception('ODE type '+args.ode_name+' not supported')
+if args.ode not in ode_dict:
+	raise Exception('ODE type '+args.ode+' not supported')
+if args.integrator_f not in ['RK45', 'RK23', 'DOP853', 'Radau', 'LSODA']:
+	raise Exception('Fine integrator '+args.integrator_f+' not supported')
+if args.integrator_g not in ['RK45', 'RK23', 'DOP853', 'Radau', 'LSODA']:
+	raise Exception('Fine integrator '+args.integrator_g+' not supported')
 
-ODE = ode_dict[args.ode_name]
+ODE = ode_dict[args.ode]
 ode = ODE()
 print(ode.info())
 
@@ -51,8 +59,8 @@ T_formatted = '{:d}'.format(int(args.T))
 N_formatted = '{:d}'.format(args.N)
 eps_formatted = '{:.1e}'.format(args.eps)
 
-folder_name = args.ode_name + '/T_'+ T_formatted + '-N_'+ N_formatted + '-eps_'+ eps_formatted
-folder_name_sh = args.ode_name + '/T_'+T_formatted
+folder_name = args.ode + '/T_'+ T_formatted + '-N_'+ N_formatted + '-eps_'+ eps_formatted
+folder_name_sh = args.ode + '/T_'+T_formatted
 
 if not os.path.exists(folder_name):
 	os.makedirs(folder_name)
@@ -65,8 +73,8 @@ tf = args.T                  # Final time
 N     = args.N	             # Nb macro-intervals <=> Nb procs
 eps   = args.eps             # Target accuracy
 eps_g = args.eps_g           # Accuracy coarse integ
-integrator_f = 'Radau'	     # Fine integrator
-integrator_g = 'RK45' 	     # Coarse integrator
+integrator_f = args.integrator_f	     # Fine integrator
+integrator_g = args.integrator_g 	     # Coarse integrator
 balance_tasks_cp = False     # Balance tasks in classical parareal
 balance_tasks_ap = True	     # Balance tasks in adaptive parareal
 compute_sh = args.compute_sh # Store eps-to-tol abacus
