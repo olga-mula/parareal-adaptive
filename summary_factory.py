@@ -87,18 +87,8 @@ def summary_run(eps, k, p, pl, fl, gl, folder_name):
   # Figures
   # =======
   # Exact solution
-  plt.figure()
-  p.exact.plot()
-  plt.xlim(p.ode.xlim())
-  plt.ylim(p.ode.ylim())
-  plt.savefig(folder_name+'exact.pdf')
-  plt.close()
+  p.exact.plot(folder_name+'exact.pdf')
 
   # Parareal solution
   for k, sol in enumerate(pl):
-    plt.figure()
-    sol.plot()
-    plt.xlim(p.ode.xlim())
-    plt.ylim(p.ode.ylim())
-    plt.savefig(folder_name+'para-sol-k-'+str(k)+'.pdf')
-    plt.close()
+    sol.plot(folder_name+'para-sol-k-'+str(k)+'.pdf')
