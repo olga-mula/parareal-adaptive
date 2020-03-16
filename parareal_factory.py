@@ -8,7 +8,9 @@ import numpy as np
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-import matplotlib.cm as cm
+import matplotlib.colors as colors
+import matplotlib.cm as cmx
+from mpl_toolkits.mplot3d import Axes3D
 from scipy.special import factorial
 from scipy.integrate import solve_ivp
 from scipy.interpolate import CubicSpline
@@ -63,14 +65,36 @@ class Propagator():
     """Return solution of ODE at time t."""
     return self.ivp.sol(t)
 
-  def plot(self, color='black'):
+  def plot(self, filename, color='black'):
     """Plot dynamics in the full interval."""
     if self.dim ==2:
+      """Phase portrait"""
       t_vec = self.ivp.t
       u_vec = self.eval(t_vec)
+
+      plt.figure()
       plt.plot(u_vec[0,:], u_vec[1,:], color=color)
+      plt.xlim(self.ode.xlim())
+      plt.ylim(self.ode.ylim())
+      plt.savefig(filename)
+      plt.close()
+    elif self.dim >= 3:
+      """Time evolution of each coordinate"""
+      t_vec = self.ivp.t
+      u_vec = self.eval(t_vec)
+
+      values = range(self.dim+1)
+      cm = plt.get_cmap('jet')
+      cNorm  = colors.Normalize(vmin=0, vmax=values[-1])
+      scalarMap = cmx.ScalarMappable(norm=cNorm, cmap=cm)
+      fig = plt.figure()
+      for i in range(self.dim):
+        plt.semilogy(t_vec, u_vec[i,:], color=scalarMap.to_rgba(values[i]), label='u_'+str(i))
+      plt.legend()
+      plt.savefig(filename)
+      plt.close()
     else:
-      raise ValueError('Dimension of problem is {}. Not supported for visualization.'.format(self.dim))
+      pass
 
   def compute_cost(self, type='sequential'):
     """Compute propagator's cost."""
@@ -139,13 +163,38 @@ class Piecewise_Propagator():
     self.cost = cost
     return cost
 
-  def plot(self):
+  def plot(self, filename, color='black'):
     """Plot dynamics in the full interval."""
-    color_list = cm.tab20c(np.linspace(0, 1, len(self.t_span-1)))
-    for i, prop in enumerate(self.propagator_span):
-      t_vec = prop.ivp.t
-      u_vec = self.eval(t_vec)
-      plt.plot(u_vec[0,:], u_vec[1,:], color=color_list[i])
+    # cm = plt.get_cmap('jet')
+    # color_list = cm.tab20c(np.linspace(0, 1, len(self.t_span-1)))
+    if self.dim ==2:
+      """Phase portrait"""
+      plt.figure()
+      for i, prop in enumerate(self.propagator_span):
+        t_vec = prop.ivp.t
+        u_vec = self.eval(t_vec)
+        plt.plot(u_vec[0,:], u_vec[1,:], color=color)
+      plt.xlim(self.ode.xlim())
+      plt.ylim(self.ode.ylim())
+      plt.savefig(filename)
+      plt.close()
+    elif self.dim >= 3:
+      """Time evolution of each coordinate"""
+      values = range(self.dim+1)
+      cm = plt.get_cmap('jet')
+      cNorm  = colors.Normalize(vmin=0, vmax=values[-1])
+      scalarMap = cmx.ScalarMappable(norm=cNorm, cmap=cm)
+      fig = plt.figure()
+      for j, prop in enumerate(self.propagator_span):
+        t_vec = prop.ivp.t
+        u_vec = self.eval(t_vec)
+        for i in range(self.dim):
+          plt.semilogy(t_vec, u_vec[i,:], color=scalarMap.to_rgba(values[i]), label='u_'+str(i))
+      plt.legend()
+      plt.savefig(filename)
+      plt.close()
+    else:
+      pass
 
 class SolverHelper():
   """SolverHelper of an ODE Propagator.
@@ -247,16 +296,19 @@ class Parareal_Algorithm():
     self.integrator_f = integrator_f
 
     T_formatted = '{:d}'.format(int(self.tf))
-    if os.path.isfile(ode.name()+'/T_'+T_formatted+'-sh_g.p') and os.path.isfile(ode.name()+'/T_'+T_formatted+'-sh_g.p'):
-      # Load SolverHelper
-      self.sh_g = pickle.load(open(ode.name()+ '/T_'+T_formatted+'-sh_g.p', 'rb'))
-      self.sh_f = pickle.load(open(ode.name()+ '/T_'+T_formatted+'-sh_f.p', 'rb'))
-    else: # Compute SolverHelper from scratch
-      self.sh_g = SolverHelper(ode, u0, t_interval, integrator=integrator_g, integrator_e = integrator_f, tol_e=1.e-13, tol_interval=[1.e-13, 1.e-2], type_norm='linf')
-      self.sh_f = SolverHelper(ode, u0, t_interval, integrator=integrator_f, integrator_e = integrator_f, tol_e=1.e-13, tol_interval=[1.e-13, 1.e-2], type_norm='linf')
+    # if os.path.isfile(ode.name()+'/T_'+T_formatted+'-sh_g.p') and os.path.isfile(ode.name()+'/T_'+T_formatted+'-sh_g.p'):
+    #   # Load SolverHelper
+    #   self.sh_g = pickle.load(open(ode.name()+ '/T_'+T_formatted+'-sh_g.p', 'rb'))
+    #   self.sh_f = pickle.load(open(ode.name()+ '/T_'+T_formatted+'-sh_f.p', 'rb'))
+    # else: # Compute SolverHelper from scratch
+    #   self.sh_g = SolverHelper(ode, u0, t_interval, integrator=integrator_g, integrator_e = integrator_f, tol_e=1.e-13, tol_interval=[1.e-13, 1.e-2], type_norm='linf')
+    #   self.sh_f = SolverHelper(ode, u0, t_interval, integrator=integrator_f, integrator_e = integrator_f, tol_e=1.e-13, tol_interval=[1.e-13, 1.e-2], type_norm='linf')
 
-      pickle.dump(self.sh_g, open(ode.name()+ '/T_'+T_formatted+'-sh_g.p', 'wb'))
-      pickle.dump(self.sh_f, open(ode.name()+ '/T_'+T_formatted+'-sh_f.p', 'wb'))
+    #   pickle.dump(self.sh_g, open(ode.name()+ '/T_'+T_formatted+'-sh_g.p', 'wb'))
+    #   pickle.dump(self.sh_f, open(ode.name()+ '/T_'+T_formatted+'-sh_f.p', 'wb'))
+
+    self.sh_g = SolverHelper(ode, u0, t_interval, integrator=integrator_g, integrator_e = integrator_f, tol_e=1.e-13, tol_interval=[1.e-13, 1.e-2], type_norm='linf')
+    self.sh_f = SolverHelper(ode, u0, t_interval, integrator=integrator_f, integrator_e = integrator_f, tol_e=1.e-13, tol_interval=[1.e-13, 1.e-2], type_norm='linf')
 
     self.eps_g = eps_g
     self.tol_g = self.sh_g.eps_to_tol(eps_g)
@@ -372,6 +424,7 @@ class Parareal_Algorithm():
           gi = Propagator(self.ode, pk_u_span[-1], t_interval, integrator=self.integrator_g, tol=self.tol_g)
           f = fkprev.propagator_span[i].eval(t_interval[-1])
           g = gl[-1].propagator_span[i].eval(t_interval[-1])
+          gi_val = gi.eval(t_interval[-1])
           pk_u_span.append( gi.eval(t_interval[-1]) + f - g )
 
         pk_u_span = np.asarray(pk_u_span).T
