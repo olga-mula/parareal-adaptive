@@ -33,9 +33,9 @@ parser.add_argument(
 parser.add_argument(
 	'-compute_sh', '--compute_sh', type=bool, default=True, help='Compute abacus')
 parser.add_argument(
-	'-integrator_f', '--integrator_f', type=bool, default='Radau', help='Fine integrator: {RK45, RK23, DOP853, Radau, LSODA}')
-  parser.add_argument(
-	'-integrator_g', '--integrator_g', type=bool, default='RK45', help='Fine integrator: {RK45, RK23, DOP853, Radau, LSODA}')
+	'-integrator_f', '--integrator_f', type=str, default='Radau', help='Fine integrator:{RK45, RK23, DOP853, Radau, LSODA}')
+parser.add_argument(
+	'-integrator_g', '--integrator_g', type=str, default='RK45', help='Fine integrator: {RK45, RK23, DOP853, Radau, LSODA}')
 parser.add_argument(
 	'-id','--id', help='Job ID for output folder')
 args = parser.parse_args()
