@@ -87,7 +87,7 @@ class Propagator():
       cm = plt.get_cmap('jet')
       cNorm  = colors.Normalize(vmin=0, vmax=values[-1])
       scalarMap = cmx.ScalarMappable(norm=cNorm, cmap=cm)
-      fig = plt.figure()
+      plt.figure()
       for i in range(self.dim):
         plt.semilogy(t_vec, u_vec[i,:], color=scalarMap.to_rgba(values[i]), label='u_'+str(i))
       plt.legend()
@@ -184,12 +184,15 @@ class Piecewise_Propagator():
       cm = plt.get_cmap('jet')
       cNorm  = colors.Normalize(vmin=0, vmax=values[-1])
       scalarMap = cmx.ScalarMappable(norm=cNorm, cmap=cm)
-      fig = plt.figure()
+      plt.figure()
       for j, prop in enumerate(self.propagator_span):
         t_vec = prop.ivp.t
         u_vec = self.eval(t_vec)
         for i in range(self.dim):
-          plt.semilogy(t_vec, u_vec[i,:], color=scalarMap.to_rgba(values[i]), label='u_'+str(i))
+          if j==0:
+            plt.semilogy(t_vec, u_vec[i,:], color=scalarMap.to_rgba(values[i]), label='u_'+str(i))
+          else:
+            plt.semilogy(t_vec, u_vec[i,:], color=scalarMap.to_rgba(values[i]))
       plt.legend()
       plt.savefig(filename)
       plt.close()
@@ -229,7 +232,7 @@ class SolverHelper():
 
     self.type_norm = type_norm
     self.tol_span, self.eps_span, self.cost_span, self.tol_to_eps = \
-      self.compute_tol_to_eps(self.integrator, self.type_norm, n_tol=20)
+      self.compute_tol_to_eps(self.integrator, self.type_norm, n_tol=40)
 
   def compute_tol_to_eps(self, integrator, type_norm, n_tol=30):
     """Compute callable function relating tol from solve_ivp to global accuracy eps."""
@@ -295,7 +298,7 @@ class Parareal_Algorithm():
     self.integrator_g = integrator_g
     self.integrator_f = integrator_f
 
-    T_formatted = '{:d}'.format(int(self.tf))
+    # T_formatted = '{:d}'.format(int(self.tf))
     # if os.path.isfile(ode.name()+'/T_'+T_formatted+'-sh_g.p') and os.path.isfile(ode.name()+'/T_'+T_formatted+'-sh_g.p'):
     #   # Load SolverHelper
     #   self.sh_g = pickle.load(open(ode.name()+ '/T_'+T_formatted+'-sh_g.p', 'rb'))
@@ -355,7 +358,6 @@ class Parareal_Algorithm():
     pl = list()
     tl = list()
 
-    eps_g = self.eps_g
     print('eps_g = '+str(self.eps_g))
 
     k = 0
@@ -424,7 +426,6 @@ class Parareal_Algorithm():
           gi = Propagator(self.ode, pk_u_span[-1], t_interval, integrator=self.integrator_g, tol=self.tol_g)
           f = fkprev.propagator_span[i].eval(t_interval[-1])
           g = gl[-1].propagator_span[i].eval(t_interval[-1])
-          gi_val = gi.eval(t_interval[-1])
           pk_u_span.append( gi.eval(t_interval[-1]) + f - g )
 
         pk_u_span = np.asarray(pk_u_span).T
