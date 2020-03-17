@@ -22,7 +22,7 @@ python3 run_parareal.py -ode odename -T 200 -N 10 -eps 1.e-8 -eps_g 0.1 -fn fold
 ```
 
 The parameters are the following:
-- ode: type of ODE. Supported keys={Brusselator, VDP}
+- ode: type of ODE. Supported keys={Brusselator, VDP, Oregonator, SEIR}
 - T: final time
 - N: Number of processors
 - eps: final target accuracy
