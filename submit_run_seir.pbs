@@ -13,9 +13,9 @@ OMP_NUM_THREADS=$PBS_NUM_PPN
 export  OMP_NUM_THREADS
 
 # Folder management
-rm -rf VDP/T_${T}-N_${N}-eps_${EPS}
-mkdir VDP/T_${T}-N_${N}-eps_${EPS}
+rm -rf SEIR/T_${T}-N_${N}-eps_${EPS}
+mkdir SEIR/T_${T}-N_${N}-eps_${EPS}
 
 # Run
 pyenv shell 3.6.2
-python3 run_parareal.py -ode VDP -T ${T} -N ${N} -eps ${EPS}
+python3 run_parareal.py -ode SEIR -T ${T} -N ${N} -eps ${EPS} -integrator_g Radau
