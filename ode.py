@@ -176,7 +176,9 @@ class SEIR():
     
     by Qianying Lin, Shi Zhao, Daozhou Gao, Yijun Lou, Shu Yang, Salihu S. Musa, Maggie H. Wang, Yongli Cai, Weiming Wang, Lin Yang, Daihai He,
 
-    published in the International Journal of Infectious Diseases 93 (2020) 211–216.
+    published in the International Journal of Infectious Diseases 93 (2020) 211–216
+
+    https://doi.org/10.1016/j.ijid.2020.02.058
 
   REMARK: The present implementation follows the model described in the paper to the best of the author's ability to understand the data provided.
 
